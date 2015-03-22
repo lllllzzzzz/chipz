@@ -59,11 +59,11 @@ void updateDebugger(HWND hwndDebugger);
 Chip8 g_Chip8;
 
 HDC         hDc             = NULL;
-HINSTANCE	g_hInst         = NULL;
-HBITMAP		g_hBmp          = NULL;
-HBITMAP		g_hBmpOld       = NULL;
-HDC			g_hMemDC        = NULL;
-UINT32*		g_pPixels       = NULL;
+HINSTANCE   g_hInst         = NULL;
+HBITMAP     g_hBmp          = NULL;
+HBITMAP	    g_hBmpOld       = NULL;
+HDC	    g_hMemDC        = NULL;
+UINT32*	    g_pPixels       = NULL;
 
 HWND        g_hWnd          = NULL;
 HWND        g_hWndDebugger  = NULL;
@@ -121,8 +121,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
     wincl.hbrBackground = (HBRUSH) COLOR_BACKGROUND;
 
-    if (!RegisterClassEx(&wincl))
-    {
+    if (!RegisterClassEx(&wincl)) {
         SHOW_ERROR("Error registering window class!\r\nChip8 Emulator will now terminate.");
         return -1;
     }
@@ -140,7 +139,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
             STATUSCLASSNAME, NULL,
             WS_CHILD | WS_VISIBLE,
             0, 0, 0, 0,
-            g_hWnd, (HMENU)IDC_MAIN_STATUS, GetModuleHandle(NULL), NULL
+            g_hWnd, reinterpret_cast<HMENU>(IDC_MAIN_STATUS), GetModuleHandle(NULL), NULL
             );
 
     int statusWidths[] = {400, -1};
@@ -148,7 +147,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     SendMessage(g_hStatus, SB_SETPARTS, sizeof (statusWidths) / sizeof (int), reinterpret_cast<LPARAM>(statusWidths));
     SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("No ROM loaded"));
 
-    if(!g_hWnd) {
+    if (!g_hWnd) {
         SHOW_ERROR("Error creating window!\r\nChip8 Emulator will now terminate.");
         return -1;
     }
@@ -180,8 +179,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     g_hBmpOld = static_cast<HBITMAP>(SelectObject(g_hMemDC, g_hBmp));
     ReleaseDC(g_hWnd, hdc);
 
-    while (GetMessage (&messages, 0, 0, 0))
-    {
+    while (GetMessage (&messages, 0, 0, 0)) {
         TranslateMessage(&messages);
         DispatchMessage(&messages);
     }
@@ -202,30 +200,31 @@ void updateInput()
 //    };
 
     int keyList[] =
-	{
-		0x31, // '1'
-		0x32, // '2'
-		0x33, // '3'
-		0x34, // '4'
-		0x51, // 'Q'
-		0x57, // 'W'
-		0x45, // 'E'
-		0x52, // 'R'
-		0x41, // 'A'
-		0x53, // 'S'
-		0x44, // 'D'
-		0x46, // 'F'
-		0x5A, // 'Z'
-		0x58, // 'X'
-		0x43, // 'C'
-		0x56, // 'V'
-		-1,
-	};
+    {
+	0x31,   // '1'
+	0x32,   // '2'
+	0x33,   // '3'
+	0x34,   // '4'
+	0x51,   // 'Q'
+	0x57,   // 'W'
+	0x45,   // 'E'
+	0x52,   // 'R'
+	0x41,   // 'A'
+	0x53,   // 'S'
+	0x44,   // 'D'
+	0x46,   // 'F'
+	0x5A,   // 'Z'
+	0x58,   // 'X'
+	0x43,   // 'C'
+	0x56,   // 'V'
+	-1,
+    };
 
-	for (int i = 0; keyList[i] != -1; i++) {
-        if ((GetAsyncKeyState(keyList[i]) & 0x8000) != 0) {
-            g_Chip8.setFlag(CPU_FLAG_KEYDOWN);
-        }
+    for (int i = 0; keyList[i] != -1; i++) {
+	if ((GetAsyncKeyState(keyList[i]) & 0x8000) != 0) {
+	    g_Chip8.setFlag(CPU_FLAG_KEYDOWN);
+	}
+
         if (GetAsyncKeyState(keyList[i]) == -32767) {
             g_Chip8.resetFlag(CPU_FLAG_KEYDOWN);
         }
@@ -239,44 +238,44 @@ void updateInput()
 void drawBitmap()
 {
     unsigned char* screen = new unsigned char[WIN_WIDTH * WIN_HEIGHT];
-	unsigned char* gfx = g_Chip8.getVideoMemory();
+    unsigned char* gfx = g_Chip8.getVideoMemory();
 
-	int gfx_w, gfx_h, gfx_pitch;
+    int gfx_w, gfx_h, gfx_pitch;
 
-	if (g_Chip8.getFlag(CPU_FLAG_SCHIP)) {
-		gfx_w       = SCHIP_VIDMEM_WIDTH;
-		gfx_h       = SCHIP_VIDMEM_HEIGHT;
-		gfx_pitch   = SCHIP_VIDMEM_WIDTH;
-	} else {
-	    gfx_w       = CHIP8_VIDMEM_WIDTH;
-		gfx_h       = CHIP8_VIDMEM_HEIGHT;
-		gfx_pitch   = CHIP8_VIDMEM_WIDTH;
+    if (g_Chip8.getFlag(CPU_FLAG_SCHIP)) {
+        gfx_w       = SCHIP_VIDMEM_WIDTH;
+	gfx_h       = SCHIP_VIDMEM_HEIGHT;
+	gfx_pitch   = SCHIP_VIDMEM_WIDTH;
+    } else {
+	gfx_w       = CHIP8_VIDMEM_WIDTH;
+	gfx_h       = CHIP8_VIDMEM_HEIGHT;
+	gfx_pitch   = CHIP8_VIDMEM_WIDTH;
+    }
+
+    int x1, y1;
+
+    // scale gfx from 128x64/64x32 to 640x320
+    for (int y = 0; y < WIN_HEIGHT; ++y) {
+	for (int x = 0; x < WIN_WIDTH; ++x) {
+		x1 = (x * gfx_w) / WIN_WIDTH;
+		y1 = (y * gfx_h) / WIN_HEIGHT;
+
+		screen[(y * WIN_WIDTH) + x] = gfx[(y1 * gfx_pitch) + x1];
 	}
+    }
 
-	int x1, y1;
-
-	// scale gfx from 128x64/64x32 to 640x320
-	for (int y = 0; y < WIN_HEIGHT; ++y) {
-		for (int x = 0; x < WIN_WIDTH; ++x) {
-			x1 = (x * gfx_w) / WIN_WIDTH;
-			y1 = (y * gfx_h) / WIN_HEIGHT;
-
-			screen[(y * WIN_WIDTH) + x] = gfx[(y1 * gfx_pitch) + x1];
-		}
-	}
-
-	// convert 640 x 320 x 1 gfx to 640 x 320 x 32 bitmap
-	for (int y = 0; y < WIN_HEIGHT; ++y) {
-		for (int x = 0; x < WIN_WIDTH; ++x) {
-			if (screen[y * WIN_WIDTH + x] != 0) {
+    // convert 640 x 320 x 1 gfx to 640 x 320 x 32 bitmap
+    for (int y = 0; y < WIN_HEIGHT; ++y) {
+    	for (int x = 0; x < WIN_WIDTH; ++x) {
+	    if (screen[y * WIN_WIDTH + x] != 0) {
                 g_pPixels[y * WIN_WIDTH + x] = g_emulatorSettings.fgColour;
             } else {
                 g_pPixels[y * WIN_WIDTH + x] = g_emulatorSettings.bgColour;
             }
-		}
-	}
+        }
+    }
 
-	InvalidateRect(g_hWnd, 0, false);
+    InvalidateRect(g_hWnd, 0, false);
     delete[] screen;
 }
 
@@ -569,8 +568,7 @@ void debugStep(HWND hwndDebugger)
     g_Chip8.tickDelayTimer();
     g_Chip8.tickSoundTimer();
 
-    if (g_Chip8.getFlag(CPU_FLAG_DRAW))
-    {
+    if (g_Chip8.getFlag(CPU_FLAG_DRAW)) {
         drawBitmap();
         g_Chip8.resetFlag(CPU_FLAG_DRAW);
     }
@@ -645,9 +643,8 @@ static int handler(void* user, const char* section, const char* name, const char
   -------------------------------------------------------------*/
 void readIni(FILE* pINI)
 {
-    if (ini_parse(INI_PATH, handler, &g_emulatorSettings) < 0)
-    {
-        printf("Can't load 'test.ini'\n");
+    if (ini_parse(INI_PATH, handler, &g_emulatorSettings) < 0) {
+        fprintf(stderr, "Can't load 'test.ini'\n");
     }
 }
 
@@ -932,7 +929,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case WM_COMMAND:
-            switch(LOWORD(wParam))
+    	    switch(LOWORD(wParam))
             {
                 case IDM_OPEN:
                 {
@@ -1295,5 +1292,3 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     return 0;
 }
-
-
