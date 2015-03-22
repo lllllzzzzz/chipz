@@ -880,14 +880,11 @@ void Chip8::Exec_FX0A()
             if (keyState_[i] == 1) {
                 Vx = i;
                 flags_ |= CPU_FLAG_KEYDOWN;
-                return;
+                // return;
             }
         }
-        return;
-    }
-
-    // Check if key is up
-    else if (flags_ & CPU_FLAG_KEYDOWN) {
+        // return;
+    } else if (flags_ & CPU_FLAG_KEYDOWN) {   // Check if key is up
         if (keyState_[Vx] == 0) {
             flags_ &= ~CPU_FLAG_KEYDOWN;
             state_.regs.pc += 2;
@@ -999,7 +996,7 @@ void Chip8::Exec_FX55()
 {
     if (state_.regs.I < 0x0200 || state_.regs.I > (0x0FFF - X)) {
         #ifdef DEBUG
-            printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...", pc, VX * 0x5);
+        printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...", pc, VX * 0x5);
         #endif // DEBUG
         resetCpu();
     } else {
