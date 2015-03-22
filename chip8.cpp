@@ -5,7 +5,7 @@
 
 #include "chip8.h"
 
-unsigned char fontset[80] =
+static const unsigned char fontset[80] =
 {
     0xF0, 0x90, 0x90, 0x90, 0xF0,   // 0
     0x20, 0x60, 0x20, 0x20, 0x70,   // 1
@@ -27,22 +27,22 @@ unsigned char fontset[80] =
 
 static const unsigned char chip8_font8x10[160] =
 {
-	0x00, 0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C, 0x00, //0
-	0x00, 0x08, 0x38, 0x08, 0x08, 0x08, 0x08, 0x08, 0x3E, 0x00, //1
-	0x00, 0x38, 0x44, 0x04, 0x08, 0x10, 0x20, 0x44, 0x7C, 0x00, //2
-	0x00, 0x38, 0x44, 0x04, 0x18, 0x04, 0x04, 0x44, 0x38, 0x00, //3
-	0x00, 0x0C, 0x14, 0x24, 0x24, 0x7E, 0x04, 0x04, 0x0E, 0x00, //4
-	0x00, 0x3E, 0x20, 0x20, 0x3C, 0x02, 0x02, 0x42, 0x3C, 0x00, //5
-	0x00, 0x0E, 0x10, 0x20, 0x3C, 0x22, 0x22, 0x22, 0x1C, 0x00, //6
-	0x00, 0x7E, 0x42, 0x02, 0x04, 0x04, 0x08, 0x08, 0x08, 0x00, //7
-	0x00, 0x3C, 0x42, 0x42, 0x3C, 0x42, 0x42, 0x42, 0x3C, 0x00, //8
-	0x00, 0x3C, 0x42, 0x42, 0x42, 0x3E, 0x02, 0x04, 0x78, 0x00, //9
-	0x00, 0x18, 0x08, 0x14, 0x14, 0x14, 0x1C, 0x22, 0x77, 0x00, //A
-	0x00, 0x7C, 0x22, 0x22, 0x3C, 0x22, 0x22, 0x22, 0x7C, 0x00, //B
-	0x00, 0x1E, 0x22, 0x40, 0x40, 0x40, 0x40, 0x22, 0x1C, 0x00, //C
-	0x00, 0x78, 0x24, 0x22, 0x22, 0x22, 0x22, 0x24, 0x78, 0x00, //D
-	0x00, 0x7E, 0x22, 0x28, 0x38, 0x28, 0x20, 0x22, 0x7E, 0x00, //E
-	0x00, 0x7E, 0x22, 0x28, 0x38, 0x28, 0x20, 0x20, 0x70, 0x00  //F
+    0x00, 0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C, 0x00,   //0
+    0x00, 0x08, 0x38, 0x08, 0x08, 0x08, 0x08, 0x08, 0x3E, 0x00,   //1
+    0x00, 0x38, 0x44, 0x04, 0x08, 0x10, 0x20, 0x44, 0x7C, 0x00,   //2
+    0x00, 0x38, 0x44, 0x04, 0x18, 0x04, 0x04, 0x44, 0x38, 0x00,   //3
+    0x00, 0x0C, 0x14, 0x24, 0x24, 0x7E, 0x04, 0x04, 0x0E, 0x00,   //4
+    0x00, 0x3E, 0x20, 0x20, 0x3C, 0x02, 0x02, 0x42, 0x3C, 0x00,   //5
+    0x00, 0x0E, 0x10, 0x20, 0x3C, 0x22, 0x22, 0x22, 0x1C, 0x00,   //6
+    0x00, 0x7E, 0x42, 0x02, 0x04, 0x04, 0x08, 0x08, 0x08, 0x00,   //7
+    0x00, 0x3C, 0x42, 0x42, 0x3C, 0x42, 0x42, 0x42, 0x3C, 0x00,   //8
+    0x00, 0x3C, 0x42, 0x42, 0x42, 0x3E, 0x02, 0x04, 0x78, 0x00,   //9
+    0x00, 0x18, 0x08, 0x14, 0x14, 0x14, 0x1C, 0x22, 0x77, 0x00,   //A
+    0x00, 0x7C, 0x22, 0x22, 0x3C, 0x22, 0x22, 0x22, 0x7C, 0x00,   //B
+    0x00, 0x1E, 0x22, 0x40, 0x40, 0x40, 0x40, 0x22, 0x1C, 0x00,   //C
+    0x00, 0x78, 0x24, 0x22, 0x22, 0x22, 0x22, 0x24, 0x78, 0x00,   //D
+    0x00, 0x7E, 0x22, 0x28, 0x38, 0x28, 0x20, 0x22, 0x7E, 0x00,   //E
+    0x00, 0x7E, 0x22, 0x28, 0x38, 0x28, 0x20, 0x20, 0x70, 0x00    //F
 };
 
 Chip8::Chip8()
@@ -80,9 +80,9 @@ unsigned int Chip8::getFlags()
     return flags_;
 }
 
-void Chip8::setFlags(unsigned int flags_)
+void Chip8::setFlags(unsigned int flags)
 {
-    this->flags_ = flags_;
+    this->flags_ = flags;
 }
 
 bool Chip8::getFlag(unsigned int flag)
@@ -128,21 +128,18 @@ void Chip8::setKeys(char keyState[16])
 
 void Chip8::tickDelayTimer()
 {
-    if (state_.regs.delayTimer > 0)
-    {
+    if (state_.regs.delayTimer > 0) {
        state_.regs.delayTimer--;
     }
 }
 
 void Chip8::tickSoundTimer()
 {
-    if (state_.regs.soundTimer > 0)
-    {
-        if (state_.regs.soundTimer == 1)
-        {
+    if (state_.regs.soundTimer > 0) {
+//      if (state_.regs.soundTimer == 1) {
 //            PlayBeep();
 //            Beep(500, 200);
-        }
+//      }
        state_.regs.soundTimer--;
     }
 }
@@ -159,15 +156,12 @@ unsigned short Chip8::getProgramCounter()
 
 unsigned short Chip8::getOpcode(unsigned short address)
 {
-    if (address < 0x200 || address > 0x0FFF)
-    {
+    if (address < 0x200 || address > 0x0FFF) {
         #ifdef DEBUG
-            printf("Error: address 0x%04X outside memory range.\n", address);
+        printf("Error: address 0x%04X outside memory range.\n", address);
         #endif // DEBUG
         return 0;
-    }
-    else
-    {
+    } else {
         return (state_.mainMemory[address] << 8) | state_.mainMemory[address + 1];
     }
 }
@@ -189,8 +183,7 @@ unsigned short* Chip8::getStack()
 
 void Chip8::debug()
 {
-    for (int i = 0; i < 16; i++)
-    {
+    for (int i = 0; i < 16; i++) {
         printf("V%01X:%02X ", i, state_.regs.V[i]);
     }
     printf("\n");
@@ -243,15 +236,16 @@ bool Chip8::resetCpu()
    state_.regs.delayTimer = 0;
    state_.regs.soundTimer = 0;
 
-    memset(state_.videoMemory, 0, CHIP8_VIDMEM_SIZE);
-    memset(state_.regs.V, 0, CHIP8_NUM_REGISTERS);
-    memset(state_.stack, 0, CHIP8_STACK_SIZE * 2);
+   memset(state_.videoMemory, 0, CHIP8_VIDMEM_SIZE);
+   memset(state_.regs.V, 0, CHIP8_NUM_REGISTERS);
+   memset(state_.stack, 0, CHIP8_STACK_SIZE * 2);
 
-    flags_ = CPU_FLAG_DETECTCOLLISION | CPU_FLAG_HWRAP | CPU_FLAG_VWRAP;
+   // Set default flags
+   flags_ = CPU_FLAG_DETECTCOLLISION | CPU_FLAG_HWRAP | CPU_FLAG_VWRAP;
 
-    srand(time(NULL));
+   srand(time(NULL));
 
-    return true;
+   return true;
 }
 
 /*|===============================================================================|
@@ -881,12 +875,9 @@ void Chip8::Exec_FX0A()
 //   state_.regs.pc += 2;
 
     // Check if key is down
-    if (flags_ & ~CPU_FLAG_KEYDOWN)
-    {
-        for (int i = 0; i < 16; i++)
-        {
-            if (keyState_[i] == 1)
-            {
+    if (flags_ & ~CPU_FLAG_KEYDOWN) {
+        for (int i = 0; i < 16; i++) {
+            if (keyState_[i] == 1) {
                 Vx = i;
                 flags_ |= CPU_FLAG_KEYDOWN;
                 return;
@@ -896,10 +887,8 @@ void Chip8::Exec_FX0A()
     }
 
     // Check if key is up
-    else if (flags_ & CPU_FLAG_KEYDOWN)
-    {
-        if (keyState_[Vx] == 0)
-        {
+    else if (flags_ & CPU_FLAG_KEYDOWN) {
+        if (keyState_[Vx] == 0) {
             flags_ &= ~CPU_FLAG_KEYDOWN;
             state_.regs.pc += 2;
         }
@@ -952,10 +941,9 @@ void Chip8::Exec_FX1E()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX29()
 {
-    if ((Vx * 0x5) < 0x0200 || (Vx * 0x5) > 0x0FFB)
-    {
+    if ((Vx * 0x5) < 0x0200 || (Vx * 0x5) > 0x0FFB) {
         #ifdef DEBUG
-            printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
+        printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
         #endif // DEBUG
         //_ResetCpu();
     }
@@ -972,10 +960,9 @@ void Chip8::Exec_FX29()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX30()
 {
-    if ((Vx * 0x5) < 0x0200 || (Vx * 0x5) > 0x0FF6)
-    {
+    if ((Vx * 0x5) < 0x0200 || (Vx * 0x5) > 0x0FF6) {
         #ifdef DEBUG
-            printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
+        printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
         #endif // DEBUG
         //_ResetCpu();
     }
@@ -1010,18 +997,13 @@ void Chip8::Exec_FX33()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX55()
 {
-    if (state_.regs.I < 0x0200 || state_.regs.I > (0x0FFF - X))
-    {
+    if (state_.regs.I < 0x0200 || state_.regs.I > (0x0FFF - X)) {
         #ifdef DEBUG
             printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...", pc, VX * 0x5);
         #endif // DEBUG
         resetCpu();
-    }
-
-    else
-    {
-        for (int i = 0; i <= X; i++)
-        {
+    } else {
+        for (int i = 0; i <= X; i++) {
             state_.mainMemory[state_.regs.I + i] = state_.regs.V[i];
         }
     }
@@ -1043,18 +1025,13 @@ void Chip8::Exec_FX55()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX65()
 {
-    if (state_.regs.I > (0x0FFF - X))
-    {
+    if (state_.regs.I > (0x0FFF - X)) {
         #ifdef DEBUG
-            printf("0x%04X: Illegal ld, address 0x%04X exceeds memory range! Resetting rom...", );
+        printf("0x%04X: Illegal ld, address 0x%04X exceeds memory range! Resetting rom...", );
         #endif // DEBUG
         resetCpu();
-    }
-
-    else
-    {
-        for (int i = 0; i <= X; i++)
-        {
+    } else {
+        for (int i = 0; i <= X; i++) {
            state_.regs.V[i] = state_.mainMemory[state_.regs.I + i];
         }
     }
@@ -1072,15 +1049,13 @@ void Chip8::Exec_FX65()
 void Chip8::Exec_FX75()
 {
     #ifdef DEBUG
-    if (X > 7)
-    {
+    if (X > 7) {
         printf("0x%04X: Illegal store, cannot access more than 8 RPL flags_! Resetting rom...", pc);
         resetCPU();
     }
     #endif
 
-    for (int i = 0; i <= X; i++)
-    {
+    for (int i = 0; i <= X; i++) {
        state_.regs.R[i] = state_.regs.V[i];
     }
 
@@ -1096,15 +1071,13 @@ void Chip8::Exec_FX75()
 void Chip8::Exec_FX85()
 {
     #ifdef DEBUG
-    if (X > 7)
-    {
+    if (X > 7) {
         printf("0x%04X: Illegal store, cannot access more than 8 RPL flags_! Resetting rom...", pc);
         resetCPU();
     }
     #endif
 
-    for (int i = 0; i <= X; i++)
-    {
+    for (int i = 0; i <= X; i++) {
        state_.regs.V[i] = state_.regs.R[i];
     }
 
