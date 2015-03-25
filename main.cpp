@@ -21,7 +21,8 @@
 
 #define DEBUG
 
-#define INI_PATH                        "C:\\Users\\Luke\\Programming\\C++\\CHIP8Emu\\bin\\Debug\\settings.ini"
+// Hardcode .ini path here
+#define INI_PATH                        ""
 
 #define FRAMES_PER_SECOND               60
 #define TIMER_INTERVAL                  17
