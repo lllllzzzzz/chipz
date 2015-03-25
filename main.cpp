@@ -154,7 +154,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
     g_hInst = hThisInstance;
 
-    ShowWindow (g_hWnd, nCmdShow);
+    ShowWindow(g_hWnd, nCmdShow);
 
     BITMAPINFO bmi;
     bmi.bmiHeader.biSize = sizeof (BITMAPINFO);
@@ -179,7 +179,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     g_hBmpOld = static_cast<HBITMAP>(SelectObject(g_hMemDC, g_hBmp));
     ReleaseDC(g_hWnd, hdc);
 
-    while (GetMessage (&messages, 0, 0, 0)) {
+    while (GetMessage(&messages, 0, 0, 0)) {
         TranslateMessage(&messages);
         DispatchMessage(&messages);
     }
@@ -900,10 +900,13 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             if(openRom(romPath)) {
                 g_emulatorSettings.isRomLoaded = true;
 
+                // Get rom name from path
                 char romFilename[MAX_PATH] = {0};
                 for (int i = 0, j = strlen(romPath) - 1; romPath[j] != '\\'; i++, j--) {
                     romFilename[i] += romPath[j];
                 }
+                
+                // Rom name is backwards, so reverse string
                 char romFilename2[MAX_PATH] = {0};
                 for (int i = 0, j = strlen(romFilename) - 1; j >= 0; i++, j--) {
                     romFilename2[i] = romFilename[j];
@@ -938,10 +941,13 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if(openRom(romPath)) {
                         g_emulatorSettings.isRomLoaded = true;
 
+			// Get rom name from path
                         char romFilename[MAX_PATH] = {0};
                         for (int i = 0, j = strlen(romPath) - 1; romPath[j] != '\\'; i++, j--) {
                             romFilename[i] += romPath[j];
                         }
+                        
+                        // Rom name is backwards, so reverse string
                         char romFilename2[MAX_PATH] = {0};
                         for (int i = 0, j = strlen(romFilename) - 1; j >= 0; i++, j--) {
                             romFilename2[i] = romFilename[j];
@@ -1175,8 +1181,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 sprintf(buffer, "Emulation paused at 0x%04X", pc);
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_CHECKED);
-                            }
-                            else {
+                            } else {
                                 char buffer[64];
                                 sprintf(buffer, "Emulation resumed from 0x%04X", pc);
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
@@ -1257,8 +1262,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         break;
 
                     case VK_TAB:
-                        if (g_emulatorSettings.isRomLoaded && !g_emulatorSettings.isDebuggerRunning)
-                        {
+                        if (g_emulatorSettings.isRomLoaded && !g_emulatorSettings.isDebuggerRunning) {
                             g_hWndDebugger = CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_DEBUGGER), 0, reinterpret_cast<DLGPROC>(DebuggerProc));
 
                             if (!g_hWndDebugger) {
