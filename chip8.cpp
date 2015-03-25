@@ -156,7 +156,7 @@ unsigned short Chip8::getProgramCounter()
 
 unsigned short Chip8::getOpcode(unsigned short address)
 {
-    if (address < 0x200 || address > 0x0FFF) {
+    if (address < CHIP8_ROM_ADDRESS || address > 0x0FFF) {
         #ifdef DEBUG
         printf("Error: address 0x%04X outside memory range.\n", address);
         #endif // DEBUG
@@ -441,7 +441,7 @@ void Chip8::Exec_00FF()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_1NNN()
 {
-    if (NNN < 0x0200 || NNN > 0x0FFD) {
+    if (NNN < CHIP8_ROM_ADDRESS || NNN > CHIP8_MEM_SIZE - 3) {
         #ifdef DEBUG
         printf("0x%04X: Illegal jump, resetting rom...\n", pc);
         #endif // DEBUG
@@ -451,7 +451,7 @@ void Chip8::Exec_1NNN()
         printf("0x%04X: Game over detected, resetting rom...\n", pc);
         #endif // DEBUG
         resetCpu();
-    } else if (NNN < 0x0200 || NNN > 0x0FFD) {
+    } else if (NNN < CHIP8_ROM_ADDRESS || NNN > CHIP8_MEM_SIZE - 3) {
         #ifdef DEBUG
         printf("0x%04X: Illegal jump, resetting rom...\n", pc);
         #endif // DEBUG
@@ -472,7 +472,7 @@ void Chip8::Exec_1NNN()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_2NNN()
 {
-    if (NNN << 0x0200 || NNN >> 0x0FFD) {
+    if (NNN << CHIP8_ROM_ADDRESS || NNN >> CHIP8_MEM_SIZE - 3) {
         #ifdef DEBUG
         printf("0x%04X: Illegal call, address out of memory range! Resetting rom...\n", pc);
         #endif // DEBUG
@@ -687,7 +687,7 @@ void Chip8::Exec_ANNN()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_BNNN()
 {
-    if (NNN + state_.regs.V[0x0] < 0x0200 || NNN + state_.regs.V[0x0] > 0x0FFD) {
+    if (NNN + state_.regs.V[0x0] < CHIP8_ROM_ADDRESS || NNN + state_.regs.V[0x0] > CHIP8_MEM_SIZE - 3) {
         #ifdef DEBUG
         printf("0x%04X: Illegal jump, address out of memory range. Resetting rom...", pc);
         #endif // DEBUG
@@ -938,7 +938,7 @@ void Chip8::Exec_FX1E()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX29()
 {
-    if ((Vx * 0x5) < 0x0200 || (Vx * 0x5) > 0x0FFB) {
+    if ((Vx * 0x5) < CHIP8_ROM_ADDRESS || (Vx * 0x5) > CHIP8_MEM_SIZE - 5) {
         #ifdef DEBUG
         printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
         #endif // DEBUG
@@ -957,7 +957,7 @@ void Chip8::Exec_FX29()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX30()
 {
-    if ((Vx * 0x5) < 0x0200 || (Vx * 0x5) > 0x0FF6) {
+    if ((Vx * 0x5) < CHIP8_ROM_ADDRESS || (Vx * 0x5) > CHIP8_MEM_SIZE - 9) {
         #ifdef DEBUG
         printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
         #endif // DEBUG
@@ -994,7 +994,7 @@ void Chip8::Exec_FX33()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX55()
 {
-    if (state_.regs.I < 0x0200 || state_.regs.I > (0x0FFF - X)) {
+    if (state_.regs.I < CHIP8_ROM_ADDRESS || state_.regs.I > (0x0FFF - X)) {
         #ifdef DEBUG
         printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...", pc, VX * 0x5);
         #endif // DEBUG
@@ -1114,16 +1114,13 @@ void Chip8::emulateCycles(unsigned int nCycles)
        state_.regs.opcode = fetch(state_.regs.pc);
        printf("%04X: %04X\n", state_.regs.opcode, state_.regs.pc);
 
-        switch (state_.regs.opcode & 0xF000)
-        {
+        switch (state_.regs.opcode & 0xF000) {
             case 0x0000:
-                switch (state_.regs.opcode & 0x00F0)
-                {
+                switch (state_.regs.opcode & 0x00F0) {
                     case 0x00C0 : Exec_00CN(); break;
                 }
 
-                switch (state_.regs.opcode & 0x00FF)
-                {
+                switch (state_.regs.opcode & 0x00FF) {
                     case 0x00EE : Exec_00EE(); break;
                     case 0x00E0 : Exec_00E0(); break;
                     case 0x00FB : Exec_00FB(); break;
@@ -1143,8 +1140,7 @@ void Chip8::emulateCycles(unsigned int nCycles)
             case 0x7000 : Exec_7XNN(); break;
 
             case 0x8000:
-                switch (state_.regs.opcode & 0x000F)
-                {
+                switch (state_.regs.opcode & 0x000F) {
                     case 0x0000 : Exec_8XY0(); break;
                     case 0x0001 : Exec_8XY1(); break;
                     case 0x0002 : Exec_8XY2(); break;
@@ -1164,16 +1160,14 @@ void Chip8::emulateCycles(unsigned int nCycles)
             case 0xD000 : Exec_DXYN(); break;
 
             case 0xE000:
-                switch (state_.regs.opcode & 0x00FF)
-                {
+                switch (state_.regs.opcode & 0x00FF) {
                     case 0x009E : Exec_EX9E(); break;
                     case 0x00A1 : Exec_EXA1(); break;
                 }
                 break;
 
             case 0xF000:
-                switch (state_.regs.opcode & 0x00FF)
-                {
+                switch (state_.regs.opcode & 0x00FF) {
                     case 0x0007 : Exec_FX07(); break;
                     case 0x000A : Exec_FX0A(); break;
                     case 0x0015 : Exec_FX15(); break;
