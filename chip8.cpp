@@ -855,41 +855,38 @@ void Chip8::Exec_FX07()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX0A()
 {
-//    bool keyPress = false;
-//
-//    for (int i = 0; i < 16; i++)
-//    {
-//        if (keyState_[i] == 1)
-//        {
-//            Vx = i;
-//            keyPress = true;
-//            break;
-//        }
-//    }
-//
-//    if (!keyPress)
-//    {
-//        return;
-//    }
-//
-//   state_.regs.pc += 2;
+    bool keyPress = false;
 
-    // Check if key is down
-    if (flags_ & ~CPU_FLAG_KEYDOWN) {
-        for (int i = 0; i < 16; i++) {
-            if (keyState_[i] == 1) {
-                Vx = i;
-                flags_ |= CPU_FLAG_KEYDOWN;
-                // return;
-            }
-        }
-        // return;
-    } else if (flags_ & CPU_FLAG_KEYDOWN) {   // Check if key is up
-        if (keyState_[Vx] == 0) {
-            flags_ &= ~CPU_FLAG_KEYDOWN;
-            state_.regs.pc += 2;
+    for (int i = 0; i < 16; i++) {
+        if (keyState_[i] == 1) {
+            Vx = i;
+            keyPress = true;
+            break;
         }
     }
+
+    if (!keyPress) {
+        return;
+    }
+
+   state_.regs.pc += 2;
+
+//    // Check if key is down
+//    if (flags_ & ~CPU_FLAG_KEYDOWN) {
+//        for (int i = 0; i < 16; i++) {
+//            if (keyState_[i] == 1) {
+//                Vx = i;
+//                flags_ |= CPU_FLAG_KEYDOWN;
+//                // return;
+//            }
+//        }
+//        // return;
+//    } else if (flags_ & CPU_FLAG_KEYDOWN) {   // Check if key is up
+//        if (keyState_[Vx] == 0) {
+//            flags_ &= ~CPU_FLAG_KEYDOWN;
+//            state_.regs.pc += 2;
+//        }
+//    }
 }
 
 /*|===============================================================================|
