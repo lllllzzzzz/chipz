@@ -212,7 +212,7 @@ bool Chip8::initializeCpu()
    memset(state_.stack, 0, CHIP8_STACK_SIZE * 2);
    memcpy(state_.mainMemory, fontset, CHIP8_FONTSET_SIZE);
 
-   flags_ = 0xC;
+   flags_ = CPU_FLAG_DETECTCOLLISION | CPU_FLAG_HWRAP | CPU_FLAG_VWRAP;
 
    srand(time(NULL));
 
@@ -241,7 +241,7 @@ bool Chip8::resetCpu()
    memset(state_.stack, 0, CHIP8_STACK_SIZE * 2);
 
    // Set default flags
-   flags_ = CPU_FLAG_DETECTCOLLISION | CPU_FLAG_HWRAP | CPU_FLAG_VWRAP;
+   //flags_ = CPU_FLAG_DETECTCOLLISION | CPU_FLAG_HWRAP | CPU_FLAG_VWRAP;
 
    srand(time(NULL));
 
@@ -1109,7 +1109,7 @@ void Chip8::emulateCycles(unsigned int nCycles)
 
     for (unsigned int i = nCycles; i > 0; i--) {
        state_.regs.opcode = fetch(state_.regs.pc);
-       printf("%04X: %04X\n", state_.regs.opcode, state_.regs.pc);
+       //printf("%04X: %04X\n", state_.regs.opcode, state_.regs.pc);
 
         switch (state_.regs.opcode & 0xF000) {
             case 0x0000:
