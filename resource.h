@@ -2,6 +2,7 @@
 #define IDC_STATIC (-1)
 #endif
 
+#define IDC_MAIN_STATUS                         99
 #define IDR_MENU1                               100
 #define IDD_ABOUT                               102
 #define IDD_DEBUGGER                            104
@@ -57,8 +58,18 @@
 #define IDM_COLOR_RANDOM                        40025
 #define IDC_ST                                  40026
 #define IDM_CUSTOM                              40026
-#define IDC_STACK                               40027
 #define IDM_SOUND_ON                            40027
 #define IDC_DISASSEMBLER                        40028
 #define IDM_TURBO                               40028
-#define IDC_MAIN_STATUS                         40029
+#define IDM_0_1_KHZ1                            40029
+#define IDM_0_2_KHZ1                            40030
+#define IDM_0_3_KHZ1                            40031
+#define IDM_0_4_KHZ1                            40032
+#define IDM_0_5_KHZ1                            40033
+#define IDM_0_6_KHZ1                            40034
+#define IDM_0_7_KHZ1                            40035
+#define IDM_0_8_KHZ1                            40036
+#define IDM_0_9_KHZ1                            40037
+#define IDM_1_KHZ1                              40038
+#define IDM_2_KHZ1                              40039
+#define IDM_2_0_KHZ1                            40040
