@@ -47,12 +47,10 @@ static const unsigned char chip8_font8x10[160] =
 
 Chip8::Chip8()
 {
-
 }
 
 Chip8::~Chip8()
 {
-
 }
 
 unsigned char* Chip8::getMainMemory()
@@ -937,7 +935,7 @@ void Chip8::Exec_FX29()
 {
     if ((Vx * 0x5) < CHIP8_ROM_ADDRESS || (Vx * 0x5) > CHIP8_MEM_SIZE - 5) {
         #ifdef DEBUG
-        printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
+        printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...", _state_.regs.pc, Vx * 0x5);
         #endif // DEBUG
         //_ResetCpu();
     }
@@ -956,7 +954,7 @@ void Chip8::Exec_FX30()
 {
     if ((Vx * 0x5) < CHIP8_ROM_ADDRESS || (Vx * 0x5) > CHIP8_MEM_SIZE - 9) {
         #ifdef DEBUG
-        printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...",_state_.regs.pc, Vx * 0x5);
+        printf("0x%04X: Illegal opcode, 0x%04X outside memory range! Resetting rom...", _state_.regs.pc, Vx * 0x5);
         #endif // DEBUG
         //_ResetCpu();
     }
@@ -1066,7 +1064,7 @@ void Chip8::Exec_FX85()
 {
     #ifdef DEBUG
     if (X > 7) {
-        printf("0x%04X: Illegal store, cannot access more than 8 RPL flags_! Resetting rom...", pc);
+        printf("0x%04X: Illegal store, cannot access more than 8 RPL flags! Resetting rom...", pc);
         resetCPU();
     }
     #endif
