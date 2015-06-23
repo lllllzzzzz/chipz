@@ -5,7 +5,7 @@
 #include <commctrl.h>
 
 #include "resource.h"
-#include "ini.h"
+//#include "ini.h"
 #include "chip8.h"
 
 #define LVM_SETEXTENDEDLISTVIEWSTYLE    (LVM_FIRST + 54)
@@ -25,8 +25,8 @@
 #define TIMER_INTERVAL                  17
 #define LOW_CPU_INTERVAL                5
 
-#define SHOW_ERROR(msg)                 MessageBox(NULL, msg, "CHIP8 Emulator", MB_ICONERROR | MB_OK);
-#define SHOW_SUCCESS(msg)               MessageBox(NULL, msg, "CHIP8 Emulator", MB_ICONASTERISK | MB_OK);
+#define SHOW_ERROR(msg)                 MessageBox(NULL, msg, "chipz", MB_ICONERROR | MB_OK);
+#define SHOW_SUCCESS(msg)               MessageBox(NULL, msg, "chipz", MB_ICONASTERISK | MB_OK);
 
 #define Hz_100                          100
 #define Hz_200                          200
@@ -47,21 +47,20 @@
 int WIN_WIDTH = 640;
 int WIN_HEIGHT = 320;
 
-
-/* Function Declarations */
+// Callback prototypes
 LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK AboutProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+// Function prototypes
+static void drawBitmap();
+static void debugStep();
+static void playBeep();
+static void updateInput();
+static void readIni();
+static void writeIni();
+static void updateDebugger(HWND hwndDebugger);
 
-void drawBitmap();
-void debugStep();
-void playBeep();
-void updateInput();
-void readIni();
-void writeIni();
-void updateDebugger(HWND hwndDebugger);
-
-/* Global Variables */
+// Globals
 Chip8 g_Chip8;
 
 HDC         hDc             = NULL;
@@ -77,8 +76,8 @@ HMENU       g_hMenu         = NULL;
 
 MMRESULT timerEvent;
 
-const char szClassName[]                  = "Chip8WindowClass";
-const char g_szWindowTitle[MAX_PATH]      = "CHIP8 Emulator";
+const char szClassName[]                  = "chipzWindowClass";
+const char g_szWindowTitle[MAX_PATH]      = "chipz";
 
 // Global emulator flags
 typedef struct emulatorSettings
@@ -115,7 +114,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     wincl.hbrBackground = (HBRUSH) COLOR_BACKGROUND;
 
     if (!RegisterClassEx(&wincl)) {
-        SHOW_ERROR("Error registering window class!\r\nChip8 Emulator will now terminate.");
+        SHOW_ERROR("Error registering window class!\r\nchipz will now terminate.");
         return -1;
     }
 
@@ -141,7 +140,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("No ROM loaded"));
 
     if (!g_hWnd) {
-        SHOW_ERROR("Error creating window!\r\nChip8 Emulator will now terminate.");
+        SHOW_ERROR("Error creating window!\r\nchipz will now terminate.");
         return -1;
     }
 
@@ -180,7 +179,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     return messages.wParam;
 }
 
-void updateInput()
+static void updateInput()
 {
     char keyState[16];
     int keyList[] = {
@@ -206,9 +205,7 @@ void updateInput()
     for (int i = 0; keyList[i] != -1; i++) {
     	if ((GetAsyncKeyState(keyList[i]) & 0x8000) != 0) {
     	    g_Chip8.setFlag(CPU_FLAG_KEYDOWN);
-    	}
-
-        if (GetAsyncKeyState(keyList[i]) == -32767) {
+    	} else if (GetAsyncKeyState(keyList[i]) == -32767) {
             g_Chip8.resetFlag(CPU_FLAG_KEYDOWN);
         }
 
@@ -218,7 +215,7 @@ void updateInput()
     g_Chip8.setKeys(keyState);
 }
 
-void drawBitmap()
+static void drawBitmap()
 {
     unsigned char* screen = new unsigned char[WIN_WIDTH * WIN_HEIGHT];
     unsigned char* gfx = g_Chip8.getVideoMemory();
@@ -262,14 +259,15 @@ void drawBitmap()
     delete[] screen;
 }
 
-void playBeep()
+static void playBeep()
 {
     PlaySound(MAKEINTRESOURCE(IDR_WAVE1), g_hInst, SND_RESOURCE | SND_ASYNC);
 }
 
 void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
 {
-    if (g_emulatorSettings.isGamePaused || g_emulatorSettings.isDebuggerRunning || (g_emulatorSettings.isPauseInactiveEnabled && GetForegroundWindow() != g_hWnd)) {
+    if (g_emulatorSettings.isGamePaused || g_emulatorSettings.isDebuggerRunning
+        || (g_emulatorSettings.isPauseInactiveEnabled && GetForegroundWindow() != g_hWnd)) {
         return;
     }
 
@@ -304,8 +302,8 @@ void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD 
     }
 }
 
-// Update UI (menu, window status)
-void updateUi(HMENU hMenu)
+// Update UI
+static void updateUi(HMENU hMenu)
 {
     EnableMenuItem(g_hMenu, IDM_CLOSE,                  (g_emulatorSettings.isRomLoaded)                ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(g_hMenu, IDM_RESET,                  (g_emulatorSettings.isRomLoaded)                ? MF_ENABLED : MF_DISABLED);
@@ -361,7 +359,7 @@ char* selectRomFilename()
     return romPath;
 }
 
-void setupDebugger(HWND hwndDebugger, unsigned int romSize)
+static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
 {
     char addressTitle[] = "Address";
     char opcodeTitle[] = "Opcode";
@@ -375,10 +373,10 @@ void setupDebugger(HWND hwndDebugger, unsigned int romSize)
     SendMessage(hwndDisassembler, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
     LvCol.pszText = addressTitle;
     LvCol.cx = 50;
-    SendMessage(hwndDisassembler, LVM_INSERTCOLUMN, 0,(LPARAM)&LvCol);
+    SendMessage(hwndDisassembler, LVM_INSERTCOLUMN, 0, reinterpret_cast<LPARAM>(&LvCol));
     LvCol.pszText = opcodeTitle;
     LvCol.cx = 50;
-    SendMessage(hwndDisassembler, LVM_INSERTCOLUMN, 1,(LPARAM)&LvCol);
+    SendMessage(hwndDisassembler, LVM_INSERTCOLUMN, 1, reinterpret_cast<LPARAM>(&LvCol));
 
     LVITEM LvItem;
     memset(&LvItem, 0, sizeof (LVITEM));
@@ -402,7 +400,7 @@ void setupDebugger(HWND hwndDebugger, unsigned int romSize)
     }
 }
 
-void updateDebugger(HWND hwndDebugger)
+static void updateDebugger(HWND hwndDebugger)
 {
     HWND hwndDisassembler = GetDlgItem(hwndDebugger, IDC_DISASSEMBLER);
     registers cpuRegs = g_Chip8.getRegisters();
@@ -492,7 +490,7 @@ void updateDebugger(HWND hwndDebugger)
     LockWindowUpdate(0);
 }
 
-void debugStep(HWND hwndDebugger)
+static void debugStep(HWND hwndDebugger)
 {
     g_Chip8.emulateCycles(1);
 
@@ -505,7 +503,7 @@ void debugStep(HWND hwndDebugger)
     }
 }
 
-bool openRom(char *romPath)
+static bool openRom(char *romPath)
 {
     if (!romPath || romPath[0] == '\0' || strlen(romPath) > MAX_PATH) {
         SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Error: cannot select filename"));
@@ -515,11 +513,11 @@ bool openRom(char *romPath)
     FILE* pFile = fopen(romPath, "rb");
 
     fseek(pFile, 0, SEEK_END);
-    size_t romSize_ = ftell(pFile);
+    size_t romSize = ftell(pFile);
     rewind(pFile);
 
-    if(romSize_ > CHIP8_MAX_ROM_SIZE) {
-        SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Error: ROM bigger than 3584 bytes"));
+    if (romSize > CHIP8_MAX_ROM_SIZE) {
+        SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Error: ROM size greater than 3584 bytes"));
         fclose(pFile);
         return false;
     }
@@ -684,7 +682,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             DragQueryFile(hDrop, 0, static_cast<LPSTR>(romPath), MAX_PATH);
 
-            if(openRom(romPath)) {
+            if (openRom(romPath)) {
                 g_emulatorSettings.isRomLoaded = true;
 
                 // Get rom name from path
@@ -723,7 +721,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     char *romPath = selectRomFilename();
 
-                    if(openRom(romPath)) {
+                    if (openRom(romPath)) {
                         g_emulatorSettings.isRomLoaded = true;
 
                         // Get rom name from path
@@ -770,6 +768,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 case IDM_SAVE_STATE:
                     g_Chip8.saveCpuState();
+
                     if (g_emulatorSettings.isDebuggerRunning) {
                         updateDebugger(g_hWndDebugger);
                         drawBitmap();
@@ -799,12 +798,10 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         unsigned short pc = g_Chip8.getProgramCounter();
 
                         if (g_emulatorSettings.isGamePaused) {
-
                             sprintf(buffer, "Emulation paused at 0x%04X", pc);
                             SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                             CheckMenuItem(g_hMenu, IDM_PAUSE, MF_CHECKED);
-                        }
-                        else {
+                        } else {
                             char buffer[64];
                             sprintf(buffer, "Emulation resumed from 0x%04X", pc);
                             SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
@@ -941,7 +938,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         g_hWndDebugger = CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_DEBUGGER), 0, reinterpret_cast<DLGPROC>(DebuggerProc));
 
                         if (!g_hWndDebugger) {
-                            MessageBox(NULL, "Error opening debugger!", "CHIP8 Emulator", MB_OK | MB_ICONERROR);
+                            MessageBox(NULL, "Error opening debugger!", "chipz", MB_OK | MB_ICONERROR);
                         } else {
                             g_emulatorSettings.isDebuggerRunning = true;
                             CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_CHECKED);
