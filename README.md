@@ -7,6 +7,7 @@ CHIP-8 emulator for Windows. GDI for graphics, GUI in Win32.
 Features:
 <ul>
 <li>Emulator speed controls</li>
+<li>Save/load state</li>
 <li>Multiple colour settings</li>
 <li>Sound</li>
 <li>Debugger</li>
