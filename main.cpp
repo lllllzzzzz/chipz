@@ -44,7 +44,7 @@
 #define DEFAULT_BG_COLOUR               0x00000000
 #define DEFAULT_FG_COLOUR               0xFFFFFFFF
 
-int WIN_WIDTH = 640;
+int WIN_WIDTH  = 640;
 int WIN_HEIGHT = 320;
 
 // Callback prototypes
@@ -66,9 +66,9 @@ Chip8 g_Chip8;
 HDC         hDc             = NULL;
 HINSTANCE   g_hInst         = NULL;
 HBITMAP     g_hBmp          = NULL;
-HBITMAP	    g_hBmpOld       = NULL;
-HDC	        g_hMemDC        = NULL;
-UINT32*	    g_pPixels       = NULL;
+HBITMAP     g_hBmpOld       = NULL;
+HDC         g_hMemDC        = NULL;
+UINT32*     g_pPixels       = NULL;
 HWND        g_hWnd          = NULL;
 HWND        g_hWndDebugger  = NULL;
 HWND        g_hStatus       = NULL;
@@ -98,18 +98,17 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     MSG messages;
     WNDCLASSEX wincl;
 
-    wincl.hInstance = hThisInstance;
+    wincl.hInstance     = hThisInstance;
     wincl.lpszClassName = szClassName;
-    wincl.lpfnWndProc = MainProc;
-    wincl.style = CS_DBLCLKS;
-    wincl.cbSize = sizeof (WNDCLASSEX);
-
-    wincl.hIcon = LoadIcon (0, IDI_APPLICATION);
-    wincl.hIconSm = LoadIcon (0, IDI_APPLICATION);
-    wincl.hCursor = LoadCursor (0, IDC_ARROW);
-    wincl.lpszMenuName = MAKEINTRESOURCE(IDR_MENU1);
-    wincl.cbClsExtra = 0;
-    wincl.cbWndExtra = 0;
+    wincl.lpfnWndProc   = MainProc;
+    wincl.style         = CS_DBLCLKS;
+    wincl.cbSize        = sizeof (WNDCLASSEX);
+    wincl.hIcon         = LoadIcon (0, IDI_APPLICATION);
+    wincl.hIconSm       = LoadIcon (0, IDI_APPLICATION);
+    wincl.hCursor       = LoadCursor (0, IDC_ARROW);
+    wincl.lpszMenuName  = MAKEINTRESOURCE(IDR_MENU1);
+    wincl.cbClsExtra    = 0;
+    wincl.cbWndExtra    = 0;
 
     wincl.hbrBackground = (HBRUSH) COLOR_BACKGROUND;
 
@@ -149,21 +148,21 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     ShowWindow(g_hWnd, nCmdShow);
 
     BITMAPINFO bmi;
-    bmi.bmiHeader.biSize = sizeof (BITMAPINFO);
-    bmi.bmiHeader.biWidth = WIN_WIDTH;
-    bmi.bmiHeader.biHeight = -WIN_HEIGHT;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    bmi.bmiHeader.biSizeImage = 0;
+    bmi.bmiHeader.biSize          = sizeof (BITMAPINFO);
+    bmi.bmiHeader.biWidth         = WIN_WIDTH;
+    bmi.bmiHeader.biHeight        = -WIN_HEIGHT;
+    bmi.bmiHeader.biPlanes        = 1;
+    bmi.bmiHeader.biBitCount      = 32;
+    bmi.bmiHeader.biCompression   = BI_RGB;
+    bmi.bmiHeader.biSizeImage     = 0;
     bmi.bmiHeader.biXPelsPerMeter = 0;
     bmi.bmiHeader.biYPelsPerMeter = 0;
-    bmi.bmiHeader.biClrUsed = 0;
-    bmi.bmiHeader.biClrImportant = 0;
-    bmi.bmiColors[0].rgbBlue = 0;
-    bmi.bmiColors[0].rgbGreen = 0;
-    bmi.bmiColors[0].rgbRed = 0;
-    bmi.bmiColors[0].rgbReserved = 0;
+    bmi.bmiHeader.biClrUsed       = 0;
+    bmi.bmiHeader.biClrImportant  = 0;
+    bmi.bmiColors[0].rgbBlue      = 0;
+    bmi.bmiColors[0].rgbGreen     = 0;
+    bmi.bmiColors[0].rgbRed       = 0;
+    bmi.bmiColors[0].rgbReserved  = 0;
 
     HDC hdc = GetDC(g_hWnd);
     g_hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, reinterpret_cast<void**>(&g_pPixels), 0, 0);
@@ -183,29 +182,29 @@ static void updateInput()
 {
     char keyState[16];
     int keyList[] = {
-    	0x31,  // '1'
-    	0x32,  // '2'
-    	0x33,  // '3'
-    	0x34,  // '4'
-    	0x51,  // 'Q'
-    	0x57,  // 'W'
-    	0x45,  // 'E'
-    	0x52,  // 'R'
-    	0x41,  // 'A'
-    	0x53,  // 'S'
-    	0x44,  // 'D'
-    	0x46,  // 'F'
-    	0x5A,  // 'Z'
-    	0x58,  // 'X'
-    	0x43,  // 'C'
-    	0x56,  // 'V'
-    	-1,
+        0x31,  // '1'
+        0x32,  // '2'
+        0x33,  // '3'
+        0x34,  // '4'
+        0x51,  // 'Q'
+        0x57,  // 'W'
+        0x45,  // 'E'
+        0x52,  // 'R'
+        0x41,  // 'A'
+        0x53,  // 'S'
+        0x44,  // 'D'
+        0x46,  // 'F'
+        0x5A,  // 'Z'
+        0x58,  // 'X'
+        0x43,  // 'C'
+        0x56,  // 'V'
+        -1,
     };
 
     for (int i = 0; keyList[i] != -1; i++) {
-    	if ((GetAsyncKeyState(keyList[i]) & 0x8000) != 0) {
-    	    g_Chip8.setFlag(CPU_FLAG_KEYDOWN);
-    	} else if (GetAsyncKeyState(keyList[i]) == -32767) {
+        if ((GetAsyncKeyState(keyList[i]) & 0x8000) != 0) {
+            g_Chip8.setFlag(CPU_FLAG_KEYDOWN);
+        } else if (GetAsyncKeyState(keyList[i]) == -32767) {
             g_Chip8.resetFlag(CPU_FLAG_KEYDOWN);
         }
 
@@ -236,18 +235,18 @@ static void drawBitmap()
 
     // Scale graphics from 128x64/64x32 to 640x320
     for (int y = 0; y < WIN_HEIGHT; y++) {
-	for (int x = 0; x < WIN_WIDTH; x++) {
-		x1 = (x * gfx_w) / WIN_WIDTH;
-		y1 = (y * gfx_h) / WIN_HEIGHT;
+    for (int x = 0; x < WIN_WIDTH; x++) {
+        x1 = (x * gfx_w) / WIN_WIDTH;
+        y1 = (y * gfx_h) / WIN_HEIGHT;
 
-		screen[(y * WIN_WIDTH) + x] = gfx[(y1 * gfx_pitch) + x1];
-	}
+        screen[(y * WIN_WIDTH) + x] = gfx[(y1 * gfx_pitch) + x1];
+    }
     }
 
     // Convert 640x320x1 graphics to 640x320x32 bitmap
     for (int y = 0; y < WIN_HEIGHT; ++y) {
-    	for (int x = 0; x < WIN_WIDTH; ++x) {
-	    if (screen[y * WIN_WIDTH + x] != 0) {
+        for (int x = 0; x < WIN_WIDTH; ++x) {
+            if (screen[y * WIN_WIDTH + x] != 0) {
                 g_pPixels[y * WIN_WIDTH + x] = g_emulatorSettings.fgColour;
             } else {
                 g_pPixels[y * WIN_WIDTH + x] = g_emulatorSettings.bgColour;
@@ -342,12 +341,12 @@ char* selectRomFilename()
 
     ZeroMemory(&rom, sizeof (OPENFILENAME));
     rom.lStructSize = sizeof (OPENFILENAME);
-    rom.hwndOwner = g_hWnd;
+    rom.hwndOwner   = g_hWnd;
     rom.lpstrFilter = "All files (*.*)\0*.*\0";
-    rom.lpstrFile = romPath;
-    rom.lpstrTitle = "Open...";
-    rom.nMaxFile = MAX_PATH;
-    rom.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
+    rom.lpstrFile   = romPath;
+    rom.lpstrTitle  = "Open...";
+    rom.nMaxFile    = MAX_PATH;
+    rom.Flags       = OFN_EXPLORER | OFN_FILEMUSTEXIST;
 
     GetOpenFileName(&rom);
 
@@ -361,8 +360,8 @@ char* selectRomFilename()
 
 static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
 {
-    char addressTitle[] = "Address";
-    char opcodeTitle[] = "Opcode";
+    char addressTitle[]   = "Address";
+    char opcodeTitle[]    = "Opcode";
     HWND hwndDisassembler = GetDlgItem(hwndDebugger, IDC_DISASSEMBLER);
 
     LVCOLUMN LvCol;
@@ -381,9 +380,9 @@ static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
     LVITEM LvItem;
     memset(&LvItem, 0, sizeof (LVITEM));
 
-    LvItem.mask = LVIF_TEXT;
+    LvItem.mask       = LVIF_TEXT;
     LvItem.cchTextMax = 256;
-    LvItem.iItem = 0;
+    LvItem.iItem      = 0;
 
     char buffer[4];
 
@@ -646,14 +645,14 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_CREATE:
         {
             // Initialise emulator flags to default values
-            g_emulatorSettings.isGamePaused             = false;
-            g_emulatorSettings.isDebuggerRunning        = false;
-            g_emulatorSettings.isRomLoaded              = false;
-            g_emulatorSettings.isPauseInactiveEnabled   = true;
-            g_emulatorSettings.isSoundEnabled           = false;
-            g_emulatorSettings.cpuSpeed                 = Hz_700;
-            g_emulatorSettings.bgColour                 = DEFAULT_BG_COLOUR;
-            g_emulatorSettings.fgColour                 = DEFAULT_FG_COLOUR;
+            g_emulatorSettings.isGamePaused           = false;
+            g_emulatorSettings.isDebuggerRunning      = false;
+            g_emulatorSettings.isRomLoaded            = false;
+            g_emulatorSettings.isPauseInactiveEnabled = true;
+            g_emulatorSettings.isSoundEnabled         = false;
+            g_emulatorSettings.cpuSpeed               = Hz_700;
+            g_emulatorSettings.bgColour               = DEFAULT_BG_COLOUR;
+            g_emulatorSettings.fgColour               = DEFAULT_FG_COLOUR;
 
             g_hMenu = GetMenu(hwnd);
             updateUi(g_hMenu);
@@ -715,7 +714,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
         case WM_COMMAND:
-    	    switch(LOWORD(wParam))
+            switch(LOWORD(wParam))
             {
                 case IDM_OPEN:
                 {
