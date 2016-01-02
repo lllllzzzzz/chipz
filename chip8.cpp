@@ -110,25 +110,12 @@ unsigned char* Chip8::getKeyInput()
 
 void Chip8::setKeys(char keyState[16])
 {
-    //_keyInput[key] = 0;
     memcpy(this->keyState_, keyState, 16);
-
-//    for (int i = 0; i < 16; i++)
-//    {
-//        if (keyState_[i] == 1)
-//        {
-//            flags_ & CPU_FLAG_KEYDOWN;
-//            return;
-//        }
-//    }
-//    flags_ & ~CPU_FLAG_KEYDOWN;
 }
 
 void Chip8::tickDelayTimer()
 {
-    if (state_.regs.delayTimer > 0) {
-       state_.regs.delayTimer--;
-    }
+    state_.regs.delayTimer -= (state_.regs.delayTimer > 0);
 }
 
 void Chip8::tickSoundTimer()
@@ -196,10 +183,10 @@ void Chip8::debug()
   |-------------------------------------------------------------------------------|*/
 bool Chip8::initializeCpu()
 {
-   state_.regs.pc = CHIP8_ROM_ADDRESS;
-   state_.regs.sp = 0;
-   state_.regs.opcode = 0;
-   state_.regs.I = 0;
+   state_.regs.pc         = CHIP8_ROM_ADDRESS;
+   state_.regs.sp         = 0;
+   state_.regs.opcode     = 0;
+   state_.regs.I          = 0;
 
    state_.regs.delayTimer = 0;
    state_.regs.soundTimer = 0;
@@ -226,10 +213,10 @@ bool Chip8::initializeCpu()
   |-------------------------------------------------------------------------------|*/
 bool Chip8::resetCpu()
 {
-   state_.regs.pc = CHIP8_ROM_ADDRESS;
-   state_.regs.sp = 0;
-   state_.regs.opcode = 0;
-   state_.regs.I = 0;
+   state_.regs.pc         = CHIP8_ROM_ADDRESS;
+   state_.regs.sp         = 0;
+   state_.regs.opcode     = 0;
+   state_.regs.I          = 0;
 
    state_.regs.delayTimer = 0;
    state_.regs.soundTimer = 0;
@@ -254,6 +241,10 @@ bool Chip8::resetCpu()
   |-------------------------------------------------------------------------------|*/
 bool Chip8::loadRom(const char *romPath)
 {
+    if (!romPath) {
+        return false;
+    }
+
     FILE* pFile = fopen(romPath, "rb");
 
     if (!pFile) {
@@ -269,7 +260,7 @@ bool Chip8::loadRom(const char *romPath)
         return false;
     }
 
-    size_t bytesRead = fread(&state_.mainMemory[CHIP8_ROM_ADDRESS], sizeof (unsigned char), romSize_, pFile);
+    size_t bytesRead = fread(&state_.mainMemory[CHIP8_ROM_ADDRESS], sizeof(unsigned char), romSize_, pFile);
 
     if (bytesRead != romSize_) {
         fclose(pFile);
