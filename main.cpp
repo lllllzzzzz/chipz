@@ -304,6 +304,10 @@ void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD 
 // Update UI
 static void updateUi(HMENU hMenu)
 {
+    if (!hMenu) {
+      return;
+    }
+
     EnableMenuItem(g_hMenu, IDM_CLOSE,                  (g_emulatorSettings.isRomLoaded)                ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(g_hMenu, IDM_RESET,                  (g_emulatorSettings.isRomLoaded)                ? MF_ENABLED : MF_DISABLED);
     EnableMenuItem(g_hMenu, IDM_SAVE_STATE,             (g_emulatorSettings.isRomLoaded)                ? MF_ENABLED : MF_DISABLED);
@@ -358,8 +362,12 @@ char* selectRomFilename()
     return romPath;
 }
 
-static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
+static void setupDebugger(HWND hwndDebugger, unsigned romSize)
 {
+    if (!hwndDebugger || romSize == 0) {
+        return;
+    }
+
     char addressTitle[]   = "Address";
     char opcodeTitle[]    = "Opcode";
     HWND hwndDisassembler = GetDlgItem(hwndDebugger, IDC_DISASSEMBLER);
@@ -401,6 +409,10 @@ static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
 
 static void updateDebugger(HWND hwndDebugger)
 {
+    if (!hwndDebugger) {
+        return;
+    }
+
     HWND hwndDisassembler = GetDlgItem(hwndDebugger, IDC_DISASSEMBLER);
     registers cpuRegs = g_Chip8.getRegisters();
     char buffer1[5], buffer2[5];
@@ -491,6 +503,10 @@ static void updateDebugger(HWND hwndDebugger)
 
 static void debugStep(HWND hwndDebugger)
 {
+    if (!hwndDebugger) {
+        return;
+    }
+
     g_Chip8.emulateCycles(1);
 
     g_Chip8.tickDelayTimer();
