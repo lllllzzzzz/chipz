@@ -110,7 +110,8 @@ unsigned char* Chip8::getKeyInput()
 
 void Chip8::setKeys(char keyState[16])
 {
-    memcpy(this->keyState_, keyState, 16);
+    const int KEY_BYTES = 16;
+    memcpy(this->keyState_, keyState, KEY_BYTES);
 }
 
 void Chip8::tickDelayTimer()
@@ -168,7 +169,9 @@ unsigned short* Chip8::getStack()
 
 void Chip8::debug()
 {
-    for (int i = 0; i < 16; i++) {
+    const int NUMBER_OF_REGISTERS = 16;
+
+    for (int i = 0; i < NUMBER_OF_REGISTERS; i++) {
         printf("V%01X:%02X ", i, state_.regs.V[i]);
     }
     printf("\n");
@@ -260,7 +263,7 @@ bool Chip8::loadRom(const char *romPath)
         return false;
     }
 
-    size_t bytesRead = fread(&state_.mainMemory[CHIP8_ROM_ADDRESS], sizeof(unsigned char), romSize_, pFile);
+    int bytesRead = fread(&state_.mainMemory[CHIP8_ROM_ADDRESS], 1, romSize_, pFile);
 
     if (bytesRead != romSize_) {
         fclose(pFile);
@@ -349,7 +352,8 @@ void Chip8::Exec_00EE()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_00E0()
 {
-    memset(state_.videoMemory, 0, 8196);
+    const int VIDEO_MEMORY_BYTES = 8196;
+    memset(state_.videoMemory, 0, VIDEO_MEMORY_BYTES);
     state_.regs.pc += 2;
 }
 
@@ -461,6 +465,8 @@ void Chip8::Exec_1NNN()
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_2NNN()
 {
+    const int STACK_UPPER_LIMIT = 32;
+
     if (NNN << CHIP8_ROM_ADDRESS || NNN >> CHIP8_MEM_SIZE - 3) {
         #ifdef DEBUG
         printf("0x%04X: Illegal call, address out of memory range! Resetting rom...\n", pc);
@@ -468,7 +474,7 @@ void Chip8::Exec_2NNN()
         resetCpu();
     }
 
-    if (state_.regs.sp == 32) {
+    if (state_.regs.sp == STACK_UPPER_LIMIT) {
         #ifdef DEBUG
         printf("0x%04X: Stack full, cannot push return address! Resetting rom...\n", pc);
         #endif // DEBUG
@@ -1026,7 +1032,7 @@ void Chip8::Exec_FX65()
 /*|===============================================================================|
   |  FX75: Store V0-Vx in R0-Rx.                                            SCHIP |
   |                                                                               |
-  |  Store the values contained in registers V0 to Vx in the RPL user flags_.      |
+  |  Store the values contained in registers V0 to Vx in the RPL user flags_.     |
   |  Flags R0 to R7 are only used by SCHIP games.                                 |
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX75()
@@ -1048,7 +1054,7 @@ void Chip8::Exec_FX75()
 /*|===============================================================================|
   |  FX85: Store R0-Rx in V0-Vx                                             SCHIP |
   |                                                                               |
-  |  Store the values contained in RPL user flags_ R0-Rx in registers V0-Vx.       |
+  |  Store the values contained in RPL user flags_ R0-Rx in registers V0-Vx.      |
   |  Flags R0 to R7 are only used by SCHIP games.                                 |
   |-------------------------------------------------------------------------------|*/
 void Chip8::Exec_FX85()
