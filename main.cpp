@@ -25,9 +25,6 @@
 #define TIMER_INTERVAL               17
 #define LOW_CPU_INTERVAL             5
 
-#define SHOW_ERROR(msg)              MessageBox(NULL, msg, "chipz", MB_ICONERROR | MB_OK);
-#define SHOW_SUCCESS(msg)            MessageBox(NULL, msg, "chipz", MB_ICONASTERISK | MB_OK);
-
 #define Hz_100                       100
 #define Hz_200                       200
 #define Hz_300                       300
@@ -40,6 +37,9 @@
 #define Hz_1000                      1000
 #define Hz_1500                      1500
 #define Hz_2000                      2000
+
+#define SHOW_ERROR(msg)              MessageBox(NULL, msg, "chipz", MB_ICONERROR | MB_OK);
+#define SHOW_SUCCESS(msg)            MessageBox(NULL, msg, "chipz", MB_ICONASTERISK | MB_OK);
 
 #define DEFAULT_BG_COLOUR            0x00000000
 #define DEFAULT_FG_COLOUR            0xFFFFFFFF
@@ -87,7 +87,7 @@ typedef struct emulatorSettings {
     unsigned int bgColour;
     unsigned int fgColour;
 } emulatorSettings;
-emulatorSettings g_emulatorSettings;
+emulatorSettings g_emu;
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow)
 {
@@ -113,32 +113,30 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
     if (!RegisterClassEx(&wincl)) {
         SHOW_ERROR("Error registering window class!\r\nchipz terminating...");
-        return -1;
+        return EXIT_FAILURE;
     }
 
     g_hWnd = CreateWindowEx(
-           WS_EX_ACCEPTFILES,
-           szClassName, g_szWindowTitle,
+           WS_EX_ACCEPTFILES, szClassName, g_szWindowTitle,
            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
            CW_USEDEFAULT, CW_USEDEFAULT, WIN_WIDTH + WINDOW_WIDTH_OFFSET,
            WIN_HEIGHT + WINDOW_HEIGHT_OFFSET, HWND_DESKTOP, 0, hThisInstance, 0
            );
 
     g_hStatus = CreateWindowEx(
-            0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE, 0, 0, 0, 0,
-            g_hWnd, reinterpret_cast<HMENU>(IDC_MAIN_STATUS),
-            GetModuleHandle(NULL), NULL
+            0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, g_hWnd,
+            reinterpret_cast<HMENU>(IDC_MAIN_STATUS), GetModuleHandle(NULL), NULL
             );
 
     int statusWidths[] = {STATUS_BAR_1_WIDTH, STATUS_BAR_2_WIDTH};
-    SendMessage(g_hStatus, SB_SETPARTS, sizeof (statusWidths) / sizeof(int),
+    SendMessage(g_hStatus, SB_SETPARTS, sizeof(statusWidths) / sizeof(int),
         reinterpret_cast<LPARAM>(statusWidths));
     SendMessage(g_hStatus, SB_SETTEXT, 0,
         reinterpret_cast<LPARAM>("No ROM loaded"));
 
     if (!g_hWnd) {
         SHOW_ERROR("Error creating window!\r\nchipz will now terminate.");
-        return -1;
+        return EXIT_FAILURE;
     }
 
     g_hInst = hThisInstance;
@@ -219,7 +217,6 @@ static void drawBitmap()
 {
     unsigned char* screen = new unsigned char[WIN_WIDTH * WIN_HEIGHT];
     unsigned char* gfx    = g_Chip8.getVideoMemory();
-
     int gfx_w, gfx_h, gfx_pitch;
 
     if (g_Chip8.getFlag(CPU_FLAG_SCHIP)) {
@@ -244,12 +241,12 @@ static void drawBitmap()
     }
 
     // Convert 640x320x1 graphics to 640x320x32 bitmap
-    for (int y = 0; y < WIN_HEIGHT; ++y) {
-        for (int x = 0; x < WIN_WIDTH; ++x) {
-        if (screen[y * WIN_WIDTH + x] != 0) {
-                g_pPixels[y * WIN_WIDTH + x] = g_emulatorSettings.fgColour;
+    for (int y = 0; y < WIN_HEIGHT; y++) {
+        for (int x = 0; x < WIN_WIDTH; x++) {
+            if (screen[y * WIN_WIDTH + x] != 0) {
+                g_pPixels[y * WIN_WIDTH + x] = g_emu.fgColour;
             } else {
-                g_pPixels[y * WIN_WIDTH + x] = g_emulatorSettings.bgColour;
+                g_pPixels[y * WIN_WIDTH + x] = g_emu.bgColour;
             }
         }
     }
@@ -265,10 +262,16 @@ static void playBeep()
 
 void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
 {
-    if (g_emulatorSettings.isGamePaused || g_emulatorSettings.isDebuggerRunning
-        || (g_emulatorSettings.isPauseInactiveEnabled && GetForegroundWindow() != g_hWnd)) {
+    /*
+    if (g_emu.isGamePaused || g_emu.isDebuggerRunning
+        || (g_emu.isPauseInactiveEnabled && GetForegroundWindow() != g_hWnd)) {
         return;
     }
+    */
+
+    if (g_emu.isGamePaused) return;
+    if (g_emu.isDebuggerRunning) return;
+    if ((g_emu.isPauseInactiveEnabled && GetForegroundWindow() != g_hWnd)) return;
 
     GUITHREADINFO gui;
     gui.cbSize = sizeof(GUITHREADINFO);
@@ -278,7 +281,7 @@ void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD 
         return;
     }
 
-    g_Chip8.emulateCycles(g_emulatorSettings.cpuSpeed / FRAMES_PER_SECOND);
+    g_Chip8.emulateCycles(g_emu.cpuSpeed / FRAMES_PER_SECOND);
 
     if (g_Chip8.getDelayTimer() > 0) {
         g_Chip8.tickDelayTimer();
@@ -286,7 +289,7 @@ void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD 
 
     if (g_Chip8.getSoundTimer() > 0) {
         if (g_Chip8.getSoundTimer() == 1) {
-            if (g_emulatorSettings.isSoundEnabled) {
+            if (g_emu.isSoundEnabled) {
                 playBeep();
             }
         }
@@ -305,31 +308,31 @@ static void updateUi(HMENU hMenu)
 {
     assert(hMenu);
 
-    EnableMenuItem(g_hMenu, IDM_CLOSE,               (g_emulatorSettings.isRomLoaded)            ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(g_hMenu, IDM_RESET,               (g_emulatorSettings.isRomLoaded)            ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(g_hMenu, IDM_SAVE_STATE,          (g_emulatorSettings.isRomLoaded)            ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(g_hMenu, IDM_LOAD_STATE,          (g_emulatorSettings.isRomLoaded)            ? MF_ENABLED : MF_DISABLED);
-    EnableMenuItem(g_hMenu, IDM_DEBUGGER,            (g_emulatorSettings.isRomLoaded)            ? MF_ENABLED : MF_DISABLED);
-    CheckMenuItem(hMenu, IDM_PAUSE,                  (g_emulatorSettings.isGamePaused)           ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_DEBUGGER,               (g_emulatorSettings.isDebuggerRunning)      ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_PAUSE_WHEN_INACTIVE,    (g_emulatorSettings.isPauseInactiveEnabled) ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_SOUND_ON,               (g_emulatorSettings.isSoundEnabled)         ? MF_CHECKED : MF_UNCHECKED);
+    EnableMenuItem(g_hMenu, IDM_CLOSE,               (g_emu.isRomLoaded)                         ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(g_hMenu, IDM_RESET,               (g_emu.isRomLoaded)                         ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(g_hMenu, IDM_SAVE_STATE,          (g_emu.isRomLoaded)                         ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(g_hMenu, IDM_LOAD_STATE,          (g_emu.isRomLoaded)                         ? MF_ENABLED : MF_DISABLED);
+    EnableMenuItem(g_hMenu, IDM_DEBUGGER,            (g_emu.isRomLoaded)                         ? MF_ENABLED : MF_DISABLED);
+    CheckMenuItem(hMenu, IDM_PAUSE,                  (g_emu.isGamePaused)                        ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_DEBUGGER,               (g_emu.isDebuggerRunning)                   ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_PAUSE_WHEN_INACTIVE,    (g_emu.isPauseInactiveEnabled)              ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_SOUND_ON,               (g_emu.isSoundEnabled)                      ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(hMenu, IDM_DETECT_GAME_OVER,       (g_Chip8.getFlag(CPU_FLAG_DETECTGAMEOVER))  ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(hMenu, IDM_DETECT_COLLISION,       (g_Chip8.getFlag(CPU_FLAG_DETECTCOLLISION)) ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(hMenu, IDM_ENABLE_HORIZONTAL_WRAP, (g_Chip8.getFlag(CPU_FLAG_HWRAP))           ? MF_CHECKED : MF_UNCHECKED);
     CheckMenuItem(hMenu, IDM_ENABLE_VERTICAL_WRAP,   (g_Chip8.getFlag(CPU_FLAG_VWRAP))           ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_1_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_100)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_2_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_200)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_3_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_300)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_4_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_400)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_5_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_500)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_6_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_600)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_7_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_700)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_8_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_800)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_0_9_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_900)     ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_1_KHZ1,                 (g_emulatorSettings.cpuSpeed == Hz_1000)    ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_2_KHZ1,                 (g_emulatorSettings.cpuSpeed == Hz_1500)    ? MF_CHECKED : MF_UNCHECKED);
-    CheckMenuItem(hMenu, IDM_2_0_KHZ1,               (g_emulatorSettings.cpuSpeed == Hz_2000)    ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_1_KHZ1,               (g_emu.cpuSpeed == Hz_100)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_2_KHZ1,               (g_emu.cpuSpeed == Hz_200)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_3_KHZ1,               (g_emu.cpuSpeed == Hz_300)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_4_KHZ1,               (g_emu.cpuSpeed == Hz_400)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_5_KHZ1,               (g_emu.cpuSpeed == Hz_500)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_6_KHZ1,               (g_emu.cpuSpeed == Hz_600)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_7_KHZ1,               (g_emu.cpuSpeed == Hz_700)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_8_KHZ1,               (g_emu.cpuSpeed == Hz_800)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_0_9_KHZ1,               (g_emu.cpuSpeed == Hz_900)                  ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_1_KHZ1,                 (g_emu.cpuSpeed == Hz_1000)                 ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_2_KHZ1,                 (g_emu.cpuSpeed == Hz_1500)                 ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenu, IDM_2_0_KHZ1,               (g_emu.cpuSpeed == Hz_2000)                 ? MF_CHECKED : MF_UNCHECKED);
 }
 
 char* selectRomFilename()
@@ -383,12 +386,11 @@ static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
 
     LVITEM LvItem;
     memset(&LvItem, 0, sizeof(LVITEM));
-
     LvItem.mask       = LVIF_TEXT;
     LvItem.cchTextMax = 256;
     LvItem.iItem      = 0;
 
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE] = {0};
 
     for (int i = (romSize + CHIP8_ROM_ADDRESS); i >= CHIP8_ROM_ADDRESS; i -= 2) {
         LvItem.iSubItem = 0;
@@ -413,8 +415,8 @@ static void updateDebugger(HWND hwndDebugger)
     assert(hwndDisassembler);
 
     registers cpuRegs = g_Chip8.getRegisters();
-    char buffer1[BUFFER_SIZE];
-    char buffer2[BUFFER_SIZE];
+    char buffer1[BUFFER_SIZE] = {0};
+    char buffer2[BUFFER_SIZE] = {0};
 
     LVITEM LvItem;
     LvItem.mask = LVIF_TEXT;
@@ -571,7 +573,7 @@ LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
                     break;
 
                 case IDC_CLOSE:
-                    g_emulatorSettings.isDebuggerRunning = false;
+                    g_emu.isDebuggerRunning = false;
                     CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_UNCHECKED);
                     EndDialog(hwnd, 0);
                     CheckMenuItem(g_hMenu, IDM_CLOSE, MF_DISABLED);
@@ -584,7 +586,7 @@ LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
             switch(LOWORD(wParam))
             {
                 case VK_TAB:
-                    g_emulatorSettings.isDebuggerRunning = false;
+                    g_emu.isDebuggerRunning = false;
                     CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_UNCHECKED);
                     EndDialog(hwnd, 0);
                     break;
@@ -594,13 +596,13 @@ LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
         break;
 
         case WM_CLOSE:
-            g_emulatorSettings.isDebuggerRunning = false;
+            g_emu.isDebuggerRunning = false;
             updateUi(g_hMenu);
             DestroyWindow(hwnd);
             break;
 
         case WM_DESTROY:
-            g_emulatorSettings.isDebuggerRunning = false;
+            g_emu.isDebuggerRunning = false;
             updateUi(g_hMenu);
             PostQuitMessage(0);
             break;
@@ -653,23 +655,21 @@ LRESULT CALLBACK AboutProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam
 // Callback procedure for main window
 LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    //HMENU hMenu;
     PAINTSTRUCT ps;
-//    char* romPath = (char*) calloc(MAX_PATH, sizeof (char));
 
     switch (message)
     {
         case WM_CREATE:
         {
             // Reset emulator flags
-            g_emulatorSettings.isGamePaused           = false;
-            g_emulatorSettings.isDebuggerRunning      = false;
-            g_emulatorSettings.isRomLoaded            = false;
-            g_emulatorSettings.isPauseInactiveEnabled = true;
-            g_emulatorSettings.isSoundEnabled         = false;
-            g_emulatorSettings.cpuSpeed               = Hz_700;
-            g_emulatorSettings.bgColour               = DEFAULT_BG_COLOUR;
-            g_emulatorSettings.fgColour               = DEFAULT_FG_COLOUR;
+            g_emu.isGamePaused           = false;
+            g_emu.isDebuggerRunning      = false;
+            g_emu.isRomLoaded            = false;
+            g_emu.isPauseInactiveEnabled = true;
+            g_emu.isSoundEnabled         = false;
+            g_emu.cpuSpeed               = Hz_700;
+            g_emu.bgColour               = DEFAULT_BG_COLOUR;
+            g_emu.fgColour               = DEFAULT_FG_COLOUR;
 
             g_hMenu = GetMenu(hwnd);
             updateUi(g_hMenu);
@@ -699,7 +699,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             DragQueryFile(hDrop, 0, static_cast<LPSTR>(romPath), MAX_PATH);
 
             if (openRom(romPath)) {
-                g_emulatorSettings.isRomLoaded = true;
+                g_emu.isRomLoaded = true;
 
                 // Get rom name from path
                 char romFilename[MAX_PATH] = {0};
@@ -741,7 +741,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if (openRom(romPath)) {
                         static const int BUFFER_SIZE = 32;
 
-                        g_emulatorSettings.isRomLoaded = true;
+                        g_emu.isRomLoaded = true;
 
                         // Get rom name from path
                         char romFilename[MAX_PATH] = {0};
@@ -755,7 +755,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                             romFilename2[i] = romFilename[j];
                         }
 
-                        char buffer[BUFFER_SIZE];
+                        char buffer[BUFFER_SIZE] = {0};
                         int romSize = g_Chip8.getRomSize();
                         sprintf(buffer, "ROM loaded: %d bytes at 0x200", romSize);
                         SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
@@ -780,7 +780,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     g_Chip8.initializeCpu();
                     drawBitmap();
 
-                    g_emulatorSettings.isRomLoaded = false;
+                    g_emu.isRomLoaded = false;
                     updateUi(g_hMenu);
 
                     //SetWindowText(hwnd, g_szNoRomLoaded);
@@ -791,17 +791,17 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 case IDM_SAVE_STATE:
                     g_Chip8.saveCpuState();
 
-                    if (g_emulatorSettings.isDebuggerRunning) {
+                    if (g_emu.isDebuggerRunning) {
                         updateDebugger(g_hWndDebugger);
                         drawBitmap();
                     }
                     break;
 
                 case IDM_LOAD_STATE:
-                    if (g_emulatorSettings.isRomLoaded) {
+                    if (g_emu.isRomLoaded) {
                         g_Chip8.loadCpuState();
 
-                        if (g_emulatorSettings.isDebuggerRunning) {
+                        if (g_emu.isDebuggerRunning) {
                             updateDebugger(g_hWndDebugger);
                             drawBitmap();
                         }
@@ -813,15 +813,15 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
 
                 case IDM_PAUSE:
-                    if (g_emulatorSettings.isRomLoaded) {
+                    if (g_emu.isRomLoaded) {
                         static const int BUFFER_SIZE = 64;
 
-                        g_emulatorSettings.isGamePaused = !g_emulatorSettings.isGamePaused;
+                        g_emu.isGamePaused = !g_emu.isGamePaused;
 
-                        char buffer[BUFFER_SIZE];
+                        char buffer[BUFFER_SIZE] = {0};
                         unsigned short pc = g_Chip8.getProgramCounter();
 
-                        if (g_emulatorSettings.isGamePaused) {
+                        if (g_emu.isGamePaused) {
                             sprintf(buffer, "Emulation paused at 0x%04X", pc);
                             SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                             CheckMenuItem(g_hMenu, IDM_PAUSE, MF_CHECKED);
@@ -835,75 +835,76 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
 
                 case IDM_RESET:
-                    if (g_emulatorSettings.isRomLoaded) {
+                    if (g_emu.isRomLoaded) {
+                        static const int BUFFER_SIZE = 64;
+
                         g_Chip8.resetCpu();
 
-                        if (g_emulatorSettings.isDebuggerRunning) {
+                        if (g_emu.isDebuggerRunning) {
                             updateDebugger(g_hWndDebugger);
                             drawBitmap();
                         }
 
-                        char buffer[64];
+                        char buffer[BUFFER_SIZE] = {0};
                         sprintf(buffer, "Emulator reset to 0x200");
                         SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                         CheckMenuItem(g_hMenu, IDM_PAUSE, MF_UNCHECKED);
-
                         updateUi(g_hMenu);
                     }
                     break;
 
                case IDM_0_1_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_100;
+                   g_emu.cpuSpeed = Hz_100;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_2_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_200;
+                   g_emu.cpuSpeed = Hz_200;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_3_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_300;
+                   g_emu.cpuSpeed = Hz_300;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_4_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_400;
+                   g_emu.cpuSpeed = Hz_400;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_5_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_500;
+                   g_emu.cpuSpeed = Hz_500;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_6_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_600;
+                   g_emu.cpuSpeed = Hz_600;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_7_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_700;
+                   g_emu.cpuSpeed = Hz_700;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_8_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_800;
+                   g_emu.cpuSpeed = Hz_800;
                    updateUi(g_hMenu);
                    break;
                case IDM_0_9_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_900;
+                   g_emu.cpuSpeed = Hz_900;
                    updateUi(g_hMenu);
                    break;
                case IDM_1_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_1000;
+                   g_emu.cpuSpeed = Hz_1000;
                    updateUi(g_hMenu);
                    break;
                case IDM_2_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_1500;
+                   g_emu.cpuSpeed = Hz_1500;
                    updateUi(g_hMenu);
                    break;
                case IDM_2_0_KHZ1:
-                   g_emulatorSettings.cpuSpeed = Hz_2000;
+                   g_emu.cpuSpeed = Hz_2000;
                    updateUi(g_hMenu);
                    break;
 
-                case IDM_PAUSE_WHEN_INACTIVE:
-                    g_emulatorSettings.isPauseInactiveEnabled = !g_emulatorSettings.isPauseInactiveEnabled;
-                    CheckMenuItem(g_hMenu, IDM_PAUSE_WHEN_INACTIVE, (g_emulatorSettings.isPauseInactiveEnabled) ? MF_CHECKED : MF_UNCHECKED);
+               case IDM_PAUSE_WHEN_INACTIVE:
+                    g_emu.isPauseInactiveEnabled = !g_emu.isPauseInactiveEnabled;
+                    CheckMenuItem(g_hMenu, IDM_PAUSE_WHEN_INACTIVE, (g_emu.isPauseInactiveEnabled) ? MF_CHECKED : MF_UNCHECKED);
                     break;
 
                 case IDM_X1:
@@ -913,26 +914,26 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
 
                 case IDM_COLOR_DEFAULT:
-                    g_emulatorSettings.bgColour = DEFAULT_BG_COLOUR;
-                    g_emulatorSettings.fgColour = DEFAULT_FG_COLOUR;
+                    g_emu.bgColour = DEFAULT_BG_COLOUR;
+                    g_emu.fgColour = DEFAULT_FG_COLOUR;
                     break;
 
                 case IDM_COLOR_INVERT:
                 {
-                    unsigned int temp = g_emulatorSettings.bgColour;
-                    g_emulatorSettings.bgColour = g_emulatorSettings.fgColour;
-                    g_emulatorSettings.fgColour = temp;
+                    unsigned int temp = g_emu.bgColour;
+                    g_emu.bgColour = g_emu.fgColour;
+                    g_emu.fgColour = temp;
                 }
                     break;
 
                 case IDM_COLOR_RANDOM:
-                    g_emulatorSettings.bgColour = rand();
-                    g_emulatorSettings.fgColour = rand();
+                    g_emu.bgColour = rand();
+                    g_emu.fgColour = rand();
                     break;
 
                 case IDM_SOUND_ON:
-                    g_emulatorSettings.isSoundEnabled = !g_emulatorSettings.isSoundEnabled;
-                    CheckMenuItem(g_hMenu, IDM_SOUND_ON, (g_emulatorSettings.isSoundEnabled) ? MF_CHECKED : MF_UNCHECKED);
+                    g_emu.isSoundEnabled = !g_emu.isSoundEnabled;
+                    CheckMenuItem(g_hMenu, IDM_SOUND_ON, (g_emu.isSoundEnabled) ? MF_CHECKED : MF_UNCHECKED);
                     break;
 
                 case IDM_DETECT_GAME_OVER:
@@ -956,18 +957,18 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
 
                 case IDM_DEBUGGER:
-                    if (g_emulatorSettings.isRomLoaded && !g_emulatorSettings.isDebuggerRunning) {
+                    if (g_emu.isRomLoaded && !g_emu.isDebuggerRunning) {
                         g_hWndDebugger = CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_DEBUGGER), 0, reinterpret_cast<DLGPROC>(DebuggerProc));
 
                         if (!g_hWndDebugger) {
                             MessageBox(NULL, "Error opening debugger!", "chipz", MB_OK | MB_ICONERROR);
                         } else {
-                            g_emulatorSettings.isDebuggerRunning = true;
+                            g_emu.isDebuggerRunning = true;
                             CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_CHECKED);
                         }
                     } else {
                         EndDialog(g_hWndDebugger, 0);
-                        g_emulatorSettings.isDebuggerRunning = false;
+                        g_emu.isDebuggerRunning = false;
                         CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_UNCHECKED);
                     }
                     break;
@@ -982,20 +983,20 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 switch(LOWORD(wParam))
                 {
                     case VK_F1:
-                        if (g_emulatorSettings.isRomLoaded) {
+                        if (g_emu.isRomLoaded) {
                             static const int BUFFER_SIZE = 64;
-                            g_emulatorSettings.isGamePaused = !g_emulatorSettings.isGamePaused;
+                            g_emu.isGamePaused = !g_emu.isGamePaused;
 
-                            char buffer[BUFFER_SIZE];
+                            char buffer[BUFFER_SIZE] = {0};
                             unsigned short pc = g_Chip8.getProgramCounter();
 
-                            if (g_emulatorSettings.isGamePaused) {
+                            if (g_emu.isGamePaused) {
                                 sprintf(buffer, "Emulation paused at 0x%04X", pc);
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_CHECKED);
                             } else {
                                 static const int BUFFER_SIZE = 64;
-                                char buffer[BUFFER_SIZE];
+                                char buffer[BUFFER_SIZE] = {0};
                                 sprintf(buffer, "Emulation resumed from 0x%04X", pc);
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_UNCHECKED);
@@ -1004,7 +1005,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         break;
 
                     case VK_F2:
-                        if (g_emulatorSettings.isRomLoaded) {
+                        if (g_emu.isRomLoaded) {
                             g_Chip8.resetCpu();
 
                             //updateDebugger();
@@ -1012,7 +1013,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                             updateUi(g_hMenu);
 
-                            if (g_emulatorSettings.isDebuggerRunning) {
+                            if (g_emu.isDebuggerRunning) {
                                 updateDebugger(g_hWndDebugger);
                                 drawBitmap();
                             }
@@ -1024,10 +1025,12 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         break;
 
                     case VK_F3:
-                        if (g_emulatorSettings.isRomLoaded) {
+                        if (g_emu.isRomLoaded) {
+                            static const int BUFFER_SIZE = 64;
+
                             g_Chip8.saveCpuState();
 
-                            char buffer[64];
+                            char buffer[BUFFER_SIZE] = {0};
                             unsigned short pc = g_Chip8.getProgramCounter();
                             sprintf(buffer, "State saved at 0x%04X", pc);
                             SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
@@ -1035,15 +1038,15 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         break;
 
                     case VK_F4:
-                        if (g_emulatorSettings.isRomLoaded) {
+                        if (g_emu.isRomLoaded) {
                             g_Chip8.loadCpuState();
 
-                            if (g_emulatorSettings.isDebuggerRunning) {
+                            if (g_emu.isDebuggerRunning) {
                                 updateDebugger(g_hWndDebugger);
                                 drawBitmap();
                             }
 
-                            if (g_emulatorSettings.isGamePaused) {
+                            if (g_emu.isGamePaused) {
                                 drawBitmap();
                             }
 
@@ -1057,39 +1060,39 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     // NOT USING THESE SETTINGS
                     /*
                     case VK_F5:
-                        g_emulatorSettings.cpuSpeed = 0;
+                        g_emu.cpuSpeed = 0;
                         updateUi(g_hMenu);
                         break;
 
                     case VK_F6:
-                        g_emulatorSettings.cpuSpeed = 1;
+                        g_emu.cpuSpeed = 1;
                         updateUi(g_hMenu);
                         break;
 
                     case VK_F7:
-                        g_emulatorSettings.cpuSpeed = 2;
+                        g_emu.cpuSpeed = 2;
                         updateUi(g_hMenu);
                         break;
 
                     case VK_F8:
-                        g_emulatorSettings.cpuSpeed = 3;
+                        g_emu.cpuSpeed = 3;
                         updateUi(g_hMenu);
                         break;
                         */
 
                     case VK_TAB:
-                        if (g_emulatorSettings.isRomLoaded && !g_emulatorSettings.isDebuggerRunning) {
+                        if (g_emu.isRomLoaded && !g_emu.isDebuggerRunning) {
                             g_hWndDebugger = CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_DEBUGGER), 0, reinterpret_cast<DLGPROC>(DebuggerProc));
 
                             if (!g_hWndDebugger) {
                                 SHOW_ERROR("Error opening debugger!");
                             } else {
-                                g_emulatorSettings.isDebuggerRunning = true;
+                                g_emu.isDebuggerRunning = true;
                                 CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_CHECKED);
                             }
                         } else {
                             EndDialog(g_hWndDebugger, 0);
-                            g_emulatorSettings.isDebuggerRunning = false;
+                            g_emu.isDebuggerRunning = false;
                             CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_UNCHECKED);
                         }
                         break;
