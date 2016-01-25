@@ -77,7 +77,7 @@ const char szClassName[]     = "chipzWindowClass";
 const char g_szWindowTitle[] = "chipz";
 
 // Global emulator flags
-typedef struct emulatorSettings {
+typedef struct emu {
     bool isGamePaused;
     bool isPauseInactiveEnabled;
     bool isSoundEnabled;
@@ -86,8 +86,8 @@ typedef struct emulatorSettings {
     int cpuSpeed;
     unsigned int bgColour;
     unsigned int fgColour;
-} emulatorSettings;
-emulatorSettings g_emu;
+} emu;
+emu g_emu;
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow)
 {
@@ -144,7 +144,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     ShowWindow(g_hWnd, nCmdShow);
 
     BITMAPINFO bmi;
-    bmi.bmiHeader.biSize          = sizeof (BITMAPINFO);
+    bmi.bmiHeader.biSize          = sizeof(BITMAPINFO);
     bmi.bmiHeader.biWidth         = WIN_WIDTH;
     bmi.bmiHeader.biHeight        = -WIN_HEIGHT;
     bmi.bmiHeader.biPlanes        = 1;
@@ -161,10 +161,14 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     bmi.bmiColors[0].rgbReserved  = 0;
 
     HDC hdc = GetDC(g_hWnd);
+    assert(hdc);
     g_hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS,
         reinterpret_cast<void**>(&g_pPixels), 0, 0);
+    assert(g_hBmp);
     g_hMemDC = CreateCompatibleDC(hdc);
+    assert(g_hMemDC);
     g_hBmpOld = static_cast<HBITMAP>(SelectObject(g_hMemDC, g_hBmp));
+    assert(g_hBmpOld);
     ReleaseDC(g_hWnd, hdc);
 
     while (GetMessage(&messages, 0, 0, 0)) {
@@ -217,6 +221,7 @@ static void drawBitmap()
 {
     unsigned char* screen = new unsigned char[WIN_WIDTH * WIN_HEIGHT];
     unsigned char* gfx    = g_Chip8.getVideoMemory();
+    assert(gfx);
     int gfx_w, gfx_h, gfx_pitch;
 
     if (g_Chip8.getFlag(CPU_FLAG_SCHIP)) {
@@ -269,9 +274,9 @@ void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD 
     }
     */
 
-    if (g_emu.isGamePaused) return;
-    if (g_emu.isDebuggerRunning) return;
-    if ((g_emu.isPauseInactiveEnabled && GetForegroundWindow() != g_hWnd)) return;
+    if (g_emu.isGamePaused)                                              return;
+    if (g_emu.isDebuggerRunning)                                         return;
+    if (g_emu.isPauseInactiveEnabled && GetForegroundWindow() != g_hWnd) return;
 
     GUITHREADINFO gui;
     gui.cbSize = sizeof(GUITHREADINFO);
@@ -415,32 +420,29 @@ static void updateDebugger(HWND hwndDebugger)
     assert(hwndDisassembler);
 
     registers cpuRegs = g_Chip8.getRegisters();
-    char buffer1[BUFFER_SIZE] = {0};
-    char buffer2[BUFFER_SIZE] = {0};
+    char targetPc[BUFFER_SIZE] = {0};
+    char currentPc[BUFFER_SIZE] = {0};
 
     LVITEM LvItem;
     LvItem.mask = LVIF_TEXT;
 
     int nItem = SendMessage(hwndDisassembler, LVM_GETNEXTITEM, -1, 0);
-    //printf("%d\n", nItem);
     while (nItem != -1) {
         nItem = SendMessage(hwndDisassembler, LVM_GETNEXTITEM, nItem, 0);
 
         LvItem.iItem      = nItem;
         LvItem.iSubItem   = 0;
-        LvItem.pszText    = buffer1;
-        LvItem.cchTextMax = 5;
+        LvItem.pszText    = targetPc;
+        LvItem.cchTextMax = BUFFER_SIZE;
 
-        sprintf(buffer2, "%04X", g_Chip8.getProgramCounter());
+        sprintf(currentPc, "%04X", g_Chip8.getProgramCounter());
 
         SendMessage(hwndDisassembler, LVM_GETITEM, 0, reinterpret_cast<LPARAM>(&LvItem));
 
-        //if (atoi(buffer1) == g_Chip8.getProgramCounter())
-        if (!strcmp(buffer1, buffer2)) {
+        if (!strcmp(targetPc, currentPc)) {
             SetFocus(hwndDisassembler);
             ListView_SetItemState(hwndDisassembler, nItem, LVIS_SELECTED | LVIS_FOCUSED, 0x000F);
             ListView_EnsureVisible(hwndDisassembler, nItem, TRUE);
-            //ListView_Scroll(hwndDisassembler, 0, -10);
         }
     }
 
@@ -449,55 +451,57 @@ static void updateDebugger(HWND hwndDebugger)
     /*--------------------------------------
        Update registers on debugger window.
       --------------------------------------*/
+    char regValue[BUFFER_SIZE] = {0};
+
     // Registers V0-VF
-    sprintf(buffer1, "%02X", cpuRegs.V[0x0]);
-    SetDlgItemText(hwndDebugger, IDC_V0, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x1]);
-    SetDlgItemText(hwndDebugger, IDC_V1, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x2]);
-    SetDlgItemText(hwndDebugger, IDC_V2, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x3]);
-    SetDlgItemText(hwndDebugger, IDC_V3, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x4]);
-    SetDlgItemText(hwndDebugger, IDC_V4, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x5]);
-    SetDlgItemText(hwndDebugger, IDC_V5, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x6]);
-    SetDlgItemText(hwndDebugger, IDC_V6, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x7]);
-    SetDlgItemText(hwndDebugger, IDC_V7, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x8]);
-    SetDlgItemText(hwndDebugger, IDC_V8, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0x9]);
-    SetDlgItemText(hwndDebugger, IDC_V9, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0xA]);
-    SetDlgItemText(hwndDebugger, IDC_VA, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0xB]);
-    SetDlgItemText(hwndDebugger, IDC_VB, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0xC]);
-    SetDlgItemText(hwndDebugger, IDC_VC, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0xD]);
-    SetDlgItemText(hwndDebugger, IDC_VD, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0xE]);
-    SetDlgItemText(hwndDebugger, IDC_VE, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.V[0xF]);
-    SetDlgItemText(hwndDebugger, IDC_VF, buffer1);
+    sprintf(regValue, "%02X", cpuRegs.V[0x0]);
+    SetDlgItemText(hwndDebugger, IDC_V0, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x1]);
+    SetDlgItemText(hwndDebugger, IDC_V1, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x2]);
+    SetDlgItemText(hwndDebugger, IDC_V2, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x3]);
+    SetDlgItemText(hwndDebugger, IDC_V3, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x4]);
+    SetDlgItemText(hwndDebugger, IDC_V4, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x5]);
+    SetDlgItemText(hwndDebugger, IDC_V5, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x6]);
+    SetDlgItemText(hwndDebugger, IDC_V6, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x7]);
+    SetDlgItemText(hwndDebugger, IDC_V7, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x8]);
+    SetDlgItemText(hwndDebugger, IDC_V8, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0x9]);
+    SetDlgItemText(hwndDebugger, IDC_V9, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0xA]);
+    SetDlgItemText(hwndDebugger, IDC_VA, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0xB]);
+    SetDlgItemText(hwndDebugger, IDC_VB, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0xC]);
+    SetDlgItemText(hwndDebugger, IDC_VC, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0xD]);
+    SetDlgItemText(hwndDebugger, IDC_VD, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0xE]);
+    SetDlgItemText(hwndDebugger, IDC_VE, regValue);
+    sprintf(regValue, "%02X", cpuRegs.V[0xF]);
+    SetDlgItemText(hwndDebugger, IDC_VF, regValue);
 
     // CPU
-    sprintf(buffer1, "%04X", cpuRegs.pc);
-    SetDlgItemText(hwndDebugger, IDC_PC, buffer1);
-    sprintf(buffer1, "%04X", cpuRegs.opcode);
-    SetDlgItemText(hwndDebugger, IDC_OPCODE, buffer1);
-    sprintf(buffer1, "%04X", cpuRegs.I);
-    SetDlgItemText(hwndDebugger, IDC_I, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.sp);
-    SetDlgItemText(hwndDebugger, IDC_SP, buffer1);
+    sprintf(regValue, "%04X", cpuRegs.pc);
+    SetDlgItemText(hwndDebugger, IDC_PC, regValue);
+    sprintf(regValue, "%04X", cpuRegs.opcode);
+    SetDlgItemText(hwndDebugger, IDC_OPCODE, regValue);
+    sprintf(regValue, "%04X", cpuRegs.I);
+    SetDlgItemText(hwndDebugger, IDC_I, regValue);
+    sprintf(regValue, "%02X", cpuRegs.sp);
+    SetDlgItemText(hwndDebugger, IDC_SP, regValue);
 
     // Timers
-    sprintf(buffer1, "%02X", cpuRegs.delayTimer);
-    SetDlgItemText(hwndDebugger, IDC_DT, buffer1);
-    sprintf(buffer1, "%02X", cpuRegs.soundTimer);
-    SetDlgItemText(hwndDebugger, IDC_ST, buffer1);
+    sprintf(regValue, "%02X", cpuRegs.delayTimer);
+    SetDlgItemText(hwndDebugger, IDC_DT, regValue);
+    sprintf(regValue, "%02X", cpuRegs.soundTimer);
+    SetDlgItemText(hwndDebugger, IDC_ST, regValue);
 
     LockWindowUpdate(0);
 }
@@ -529,6 +533,7 @@ static bool openRom(char *romPath)
     }
 
     FILE* pFile = fopen(romPath, "rb");
+    assert(pFile);
 
     fseek(pFile, 0, SEEK_END);
     size_t romSize = ftell(pFile);
@@ -836,8 +841,6 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 case IDM_RESET:
                     if (g_emu.isRomLoaded) {
-                        static const int BUFFER_SIZE = 64;
-
                         g_Chip8.resetCpu();
 
                         if (g_emu.isDebuggerRunning) {
@@ -845,9 +848,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                             drawBitmap();
                         }
 
-                        char buffer[BUFFER_SIZE] = {0};
-                        sprintf(buffer, "Emulator reset to 0x200");
-                        SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
+                        SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Emulator reset to 0x200"));
                         CheckMenuItem(g_hMenu, IDM_PAUSE, MF_UNCHECKED);
                         updateUi(g_hMenu);
                     }
@@ -995,8 +996,6 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_CHECKED);
                             } else {
-                                static const int BUFFER_SIZE = 64;
-                                char buffer[BUFFER_SIZE] = {0};
                                 sprintf(buffer, "Emulation resumed from 0x%04X", pc);
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_UNCHECKED);
@@ -1018,9 +1017,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 drawBitmap();
                             }
 
-                            char buffer[64];
-                            sprintf(buffer, "Emulator reset to 0x200");
-                            SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
+                            SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Emulator reset to 0x200"));
                         }
                         break;
 
