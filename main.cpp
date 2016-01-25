@@ -6,47 +6,43 @@
 #include <assert.h>
 
 #include "resource.h"
-//#include "ini.h"
 #include "chip8.h"
-
-#define LVM_SETEXTENDEDLISTVIEWSTYLE    (LVM_FIRST + 54)
-#define LVS_EX_GRIDLINES                0x00000001
-#define LVS_EX_SUBITEMIMAGES            0x00000002
-#define LVS_EX_CHECKBOXES               0x00000004
-#define LVS_EX_TRACKSELECT              0x00000008
-#define LVS_EX_HEADERDRAGDROP           0x00000010
-#define LVS_EX_FULLROWSELECT            0x00000020
-#define LVS_EX_ONECLICKACTIVATE         0x00000040
-#define LVS_EX_TWOCLICKACTIVATE         0x00000080
-#define LVS_EX_DOUBLEBUFFER             0x00010000
 
 #define DEBUG
 
-#define FRAMES_PER_SECOND               60
-#define TIMER_INTERVAL                  17
-#define LOW_CPU_INTERVAL                5
+#define LVM_SETEXTENDEDLISTVIEWSTYLE (LVM_FIRST + 54)
+#define LVS_EX_GRIDLINES             0x00000001
+#define LVS_EX_SUBITEMIMAGES         0x00000002
+#define LVS_EX_CHECKBOXES            0x00000004
+#define LVS_EX_TRACKSELECT           0x00000008
+#define LVS_EX_HEADERDRAGDROP        0x00000010
+#define LVS_EX_FULLROWSELECT         0x00000020
+#define LVS_EX_ONECLICKACTIVATE      0x00000040
+#define LVS_EX_TWOCLICKACTIVATE      0x00000080
+#define LVS_EX_DOUBLEBUFFER          0x00010000
 
-#define SHOW_ERROR(msg)                 MessageBox(NULL, msg, "chipz", MB_ICONERROR | MB_OK);
-#define SHOW_SUCCESS(msg)               MessageBox(NULL, msg, "chipz", MB_ICONASTERISK | MB_OK);
+#define FRAMES_PER_SECOND            60
+#define TIMER_INTERVAL               17
+#define LOW_CPU_INTERVAL             5
 
-#define Hz_100                          100
-#define Hz_200                          200
-#define Hz_300                          300
-#define Hz_400                          400
-#define Hz_500                          500
-#define Hz_600                          600
-#define Hz_700                          700
-#define Hz_800                          800
-#define Hz_900                          900
-#define Hz_1000                         1000
-#define Hz_1500                         1500
-#define Hz_2000                         2000
+#define SHOW_ERROR(msg)              MessageBox(NULL, msg, "chipz", MB_ICONERROR | MB_OK);
+#define SHOW_SUCCESS(msg)            MessageBox(NULL, msg, "chipz", MB_ICONASTERISK | MB_OK);
 
-#define DEFAULT_BG_COLOUR               0x00000000
-#define DEFAULT_FG_COLOUR               0xFFFFFFFF
+#define Hz_100                       100
+#define Hz_200                       200
+#define Hz_300                       300
+#define Hz_400                       400
+#define Hz_500                       500
+#define Hz_600                       600
+#define Hz_700                       700
+#define Hz_800                       800
+#define Hz_900                       900
+#define Hz_1000                      1000
+#define Hz_1500                      1500
+#define Hz_2000                      2000
 
-int WIN_WIDTH = 640;
-int WIN_HEIGHT = 320;
+#define DEFAULT_BG_COLOUR            0x00000000
+#define DEFAULT_FG_COLOUR            0xFFFFFFFF
 
 // Callback prototypes
 LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -62,33 +58,32 @@ static void writeIni();
 static void updateDebugger(HWND hwndDebugger);
 
 // Globals
-Chip8 g_Chip8;
+Chip8       g_Chip8;
+HDC         hDc            = NULL;
+HINSTANCE   g_hInst        = NULL;
+HBITMAP     g_hBmp         = NULL;
+HBITMAP     g_hBmpOld      = NULL;
+HDC         g_hMemDC       = NULL;
+UINT32*     g_pPixels      = NULL;
+HWND        g_hWnd         = NULL;
+HWND        g_hWndDebugger = NULL;
+HWND        g_hStatus      = NULL;
+HMENU       g_hMenu        = NULL;
+MMRESULT    timerEvent     = NULL;
+int         WIN_WIDTH      = 640;
+int         WIN_HEIGHT     = 320;
 
-HDC         hDc             = NULL;
-HINSTANCE   g_hInst         = NULL;
-HBITMAP     g_hBmp          = NULL;
-HBITMAP     g_hBmpOld       = NULL;
-HDC         g_hMemDC        = NULL;
-UINT32*     g_pPixels       = NULL;
-HWND        g_hWnd          = NULL;
-HWND        g_hWndDebugger  = NULL;
-HWND        g_hStatus       = NULL;
-HMENU       g_hMenu         = NULL;
-
-MMRESULT timerEvent;
-
-const char szClassName[]                  = "chipzWindowClass";
-const char g_szWindowTitle[MAX_PATH]      = "chipz";
+const char szClassName[]     = "chipzWindowClass";
+const char g_szWindowTitle[] = "chipz";
 
 // Global emulator flags
-typedef struct emulatorSettings
-{
+typedef struct emulatorSettings {
     bool isGamePaused;
     bool isPauseInactiveEnabled;
     bool isSoundEnabled;
     bool isDebuggerRunning;
     bool isRomLoaded;
-    unsigned int cpuSpeed;
+    int cpuSpeed;
     unsigned int bgColour;
     unsigned int fgColour;
 } emulatorSettings;
@@ -103,24 +98,21 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
     MSG messages;
     WNDCLASSEX wincl;
-
     wincl.hInstance     = hThisInstance;
     wincl.lpszClassName = szClassName;
     wincl.lpfnWndProc   = MainProc;
     wincl.style         = CS_DBLCLKS;
     wincl.cbSize        = sizeof (WNDCLASSEX);
-
     wincl.hIcon         = LoadIcon (0, IDI_APPLICATION);
     wincl.hIconSm       = LoadIcon (0, IDI_APPLICATION);
     wincl.hCursor       = LoadCursor (0, IDC_ARROW);
     wincl.lpszMenuName  = MAKEINTRESOURCE(IDR_MENU1);
     wincl.cbClsExtra    = 0;
     wincl.cbWndExtra    = 0;
-
     wincl.hbrBackground = (HBRUSH) COLOR_BACKGROUND;
 
     if (!RegisterClassEx(&wincl)) {
-        SHOW_ERROR("Error registering window class!\r\nchipz will now terminate.");
+        SHOW_ERROR("Error registering window class!\r\nchipz terminating...");
         return -1;
     }
 
@@ -128,21 +120,21 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
            WS_EX_ACCEPTFILES,
            szClassName, g_szWindowTitle,
            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-           CW_USEDEFAULT, CW_USEDEFAULT, WIN_WIDTH + WINDOW_WIDTH_OFFSET, 
+           CW_USEDEFAULT, CW_USEDEFAULT, WIN_WIDTH + WINDOW_WIDTH_OFFSET,
            WIN_HEIGHT + WINDOW_HEIGHT_OFFSET, HWND_DESKTOP, 0, hThisInstance, 0
            );
 
     g_hStatus = CreateWindowEx(
-            0,
-            STATUSCLASSNAME, NULL,
-            WS_CHILD | WS_VISIBLE,
-            0, 0, 0, 0,
-            g_hWnd, reinterpret_cast<HMENU>(IDC_MAIN_STATUS), GetModuleHandle(NULL), NULL
+            0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE, 0, 0, 0, 0,
+            g_hWnd, reinterpret_cast<HMENU>(IDC_MAIN_STATUS),
+            GetModuleHandle(NULL), NULL
             );
 
     int statusWidths[] = {STATUS_BAR_1_WIDTH, STATUS_BAR_2_WIDTH};
-    SendMessage(g_hStatus, SB_SETPARTS, sizeof (statusWidths) / sizeof(int), reinterpret_cast<LPARAM>(statusWidths));
-    SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("No ROM loaded"));
+    SendMessage(g_hStatus, SB_SETPARTS, sizeof (statusWidths) / sizeof(int),
+        reinterpret_cast<LPARAM>(statusWidths));
+    SendMessage(g_hStatus, SB_SETTEXT, 0,
+        reinterpret_cast<LPARAM>("No ROM loaded"));
 
     if (!g_hWnd) {
         SHOW_ERROR("Error creating window!\r\nchipz will now terminate.");
@@ -171,7 +163,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     bmi.bmiColors[0].rgbReserved  = 0;
 
     HDC hdc = GetDC(g_hWnd);
-    g_hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, reinterpret_cast<void**>(&g_pPixels), 0, 0);
+    g_hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS,
+        reinterpret_cast<void**>(&g_pPixels), 0, 0);
     g_hMemDC = CreateCompatibleDC(hdc);
     g_hBmpOld = static_cast<HBITMAP>(SelectObject(g_hMemDC, g_hBmp));
     ReleaseDC(g_hWnd, hdc);
@@ -186,7 +179,9 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
 static void updateInput()
 {
-    char keyState[16];
+    #define IS_KEY_DOWN(key) ((GetAsyncKeyState(keyList[key]) & 0x8000) != 0)
+
+    char keyState[16] = {0};
     int keyList[] = {
         0x31,  // '1'
         0x32,  // '2'
@@ -207,14 +202,14 @@ static void updateInput()
         -1,
     };
 
-    for (int i = 0; keyList[i] != -1; i++) {
-        if ((GetAsyncKeyState(keyList[i]) & 0x8000) != 0) {
+    for (int key = 0; keyList[key] != -1; key++) {
+        if (IS_KEY_DOWN(key)) {
             g_Chip8.setFlag(CPU_FLAG_KEYDOWN);
-        } else if (GetAsyncKeyState(keyList[i]) == -32767) {
+            keyState[key] = true;
+        } else {
             g_Chip8.resetFlag(CPU_FLAG_KEYDOWN);
+            keyState[key] = false;
         }
-
-        keyState[i] = (GetAsyncKeyState(keyList[i]) & 0x8000) != 0;
     }
 
     g_Chip8.setKeys(keyState);
@@ -241,12 +236,11 @@ static void drawBitmap()
 
     // Scale graphics from 128x64/64x32 to 640x320
     for (int y = 0; y < WIN_HEIGHT; y++) {
-    for (int x = 0; x < WIN_WIDTH; x++) {
-        x1 = (x * gfx_w) / WIN_WIDTH;
-        y1 = (y * gfx_h) / WIN_HEIGHT;
-
-        screen[(y * WIN_WIDTH) + x] = gfx[(y1 * gfx_pitch) + x1];
-    }
+        for (int x = 0; x < WIN_WIDTH; x++) {
+            x1 = (x * gfx_w) / WIN_WIDTH;
+            y1 = (y * gfx_h) / WIN_HEIGHT;
+            screen[(y * WIN_WIDTH) + x] = gfx[(y1 * gfx_pitch) + x1];
+        }
     }
 
     // Convert 640x320x1 graphics to 640x320x32 bitmap
@@ -266,7 +260,7 @@ static void drawBitmap()
 
 static void playBeep()
 {
-    //PlaySound(MAKEINTRESOURCE(IDR_WAVE1), g_hInst, SND_RESOURCE | SND_ASYNC);
+    PlaySound(MAKEINTRESOURCE(IDR_WAVE1), g_hInst, SND_RESOURCE | SND_ASYNC);
 }
 
 void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
@@ -277,7 +271,7 @@ void CALLBACK timerCallback(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD 
     }
 
     GUITHREADINFO gui;
-    gui.cbSize = sizeof (GUITHREADINFO);
+    gui.cbSize = sizeof(GUITHREADINFO);
     GetGUIThreadInfo(0, &gui);
 
     if (gui.flags & GUI_INMOVESIZE || gui.flags & GUI_INMENUMODE) {
@@ -370,7 +364,7 @@ static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
     char ADDRESS_TITLE[]         = "Address";
     char OPCODE_TITLE[]          = "Opcode";
     static const int BUFFER_SIZE = 4;
-    
+
     HWND hwndDisassembler = GetDlgItem(hwndDebugger, IDC_DISASSEMBLER);
     assert(hwndDisassembler);
 
@@ -510,7 +504,9 @@ static void debugStep(HWND hwndDebugger)
 {
     assert(hwndDebugger);
 
-    g_Chip8.emulateCycles(1);
+    static const int DEBUG_STEP_CYCLES = 1;
+
+    g_Chip8.emulateCycles(DEBUG_STEP_CYCLES);
 
     g_Chip8.tickDelayTimer();
     g_Chip8.tickSoundTimer();
@@ -523,7 +519,7 @@ static void debugStep(HWND hwndDebugger)
 
 static bool openRom(char *romPath)
 {
-    assert(romPath);
+    //assert(romPath);
 
     if (!romPath || romPath[0] == '\0' || strlen(romPath) > MAX_PATH) {
         SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Error: cannot select filename"));
@@ -665,15 +661,15 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         case WM_CREATE:
         {
-            // Initialise emulator flags to default values
-            g_emulatorSettings.isGamePaused            = false;
-            g_emulatorSettings.isDebuggerRunning       = false;
-            g_emulatorSettings.isRomLoaded             = false;
-            g_emulatorSettings.isPauseInactiveEnabled  = true;
-            g_emulatorSettings.isSoundEnabled          = false;
-            g_emulatorSettings.cpuSpeed                = Hz_700;
-            g_emulatorSettings.bgColour                = DEFAULT_BG_COLOUR;
-            g_emulatorSettings.fgColour                = DEFAULT_FG_COLOUR;
+            // Reset emulator flags
+            g_emulatorSettings.isGamePaused           = false;
+            g_emulatorSettings.isDebuggerRunning      = false;
+            g_emulatorSettings.isRomLoaded            = false;
+            g_emulatorSettings.isPauseInactiveEnabled = true;
+            g_emulatorSettings.isSoundEnabled         = false;
+            g_emulatorSettings.cpuSpeed               = Hz_700;
+            g_emulatorSettings.bgColour               = DEFAULT_BG_COLOUR;
+            g_emulatorSettings.fgColour               = DEFAULT_FG_COLOUR;
 
             g_hMenu = GetMenu(hwnd);
             updateUi(g_hMenu);
@@ -740,7 +736,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 case IDM_OPEN:
                 {
                     char *romPath = selectRomFilename();
-                    assert(romPath);
+                    //assert(romPath);
 
                     if (openRom(romPath)) {
                         static const int BUFFER_SIZE = 32;
@@ -788,6 +784,8 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     updateUi(g_hMenu);
 
                     //SetWindowText(hwnd, g_szNoRomLoaded);
+                    SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("No ROM loaded"));
+                    SendMessage(g_hStatus, SB_SETTEXT, 1, reinterpret_cast<LPARAM>(""));
                     break;
 
                 case IDM_SAVE_STATE:
@@ -905,8 +903,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 case IDM_PAUSE_WHEN_INACTIVE:
                     g_emulatorSettings.isPauseInactiveEnabled = !g_emulatorSettings.isPauseInactiveEnabled;
-//                    CheckMenuItem(g_hMenu, IDM_PAUSE_WHEN_INACTIVE, (g_emulatorSettings.isPauseInactiveEnabled) ? MF_CHECKED : MF_UNCHECKED);
-                    updateUi(g_hMenu);
+                    CheckMenuItem(g_hMenu, IDM_PAUSE_WHEN_INACTIVE, (g_emulatorSettings.isPauseInactiveEnabled) ? MF_CHECKED : MF_UNCHECKED);
                     break;
 
                 case IDM_X1:
@@ -935,8 +932,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 case IDM_SOUND_ON:
                     g_emulatorSettings.isSoundEnabled = !g_emulatorSettings.isSoundEnabled;
-//                    CheckMenuItem(g_hMenu, IDM_ON, (g_emulatorSettings.isSoundEnabled) ? MF_CHECKED : MF_UNCHECKED);
-                    updateUi(g_hMenu);
+                    CheckMenuItem(g_hMenu, IDM_SOUND_ON, (g_emulatorSettings.isSoundEnabled) ? MF_CHECKED : MF_UNCHECKED);
                     break;
 
                 case IDM_DETECT_GAME_OVER:
@@ -977,7 +973,6 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
 
                 case IDM_ABOUT:
-                    //DialogBox(GetModuleHandle(0), MAKEINTRESOURCE(IDD_ABOUT), 0, (DLGPROC)AboutProc);
                     CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_ABOUT), 0, (DLGPROC)AboutProc);
                     break;
             }
@@ -999,7 +994,8 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_CHECKED);
                             } else {
-                                char buffer[64];
+                                static const int BUFFER_SIZE = 64;
+                                char buffer[BUFFER_SIZE];
                                 sprintf(buffer, "Emulation resumed from 0x%04X", pc);
                                 SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_UNCHECKED);
@@ -1058,6 +1054,8 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         }
                         break;
 
+                    // NOT USING THESE SETTINGS
+                    /*
                     case VK_F5:
                         g_emulatorSettings.cpuSpeed = 0;
                         updateUi(g_hMenu);
@@ -1077,6 +1075,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         g_emulatorSettings.cpuSpeed = 3;
                         updateUi(g_hMenu);
                         break;
+                        */
 
                     case VK_TAB:
                         if (g_emulatorSettings.isRomLoaded && !g_emulatorSettings.isDebuggerRunning) {
