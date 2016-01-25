@@ -96,21 +96,26 @@ emulatorSettings g_emulatorSettings;
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow)
 {
+    static const int WINDOW_WIDTH_OFFSET  = 6;
+    static const int WINDOW_HEIGHT_OFFSET = 71;
+    static const int STATUS_BAR_1_WIDTH   = 400;
+    static const int STATUS_BAR_2_WIDTH   = -1;
+
     MSG messages;
     WNDCLASSEX wincl;
 
-    wincl.hInstance = hThisInstance;
+    wincl.hInstance     = hThisInstance;
     wincl.lpszClassName = szClassName;
-    wincl.lpfnWndProc = MainProc;
-    wincl.style = CS_DBLCLKS;
-    wincl.cbSize = sizeof (WNDCLASSEX);
+    wincl.lpfnWndProc   = MainProc;
+    wincl.style         = CS_DBLCLKS;
+    wincl.cbSize        = sizeof (WNDCLASSEX);
 
-    wincl.hIcon = LoadIcon (0, IDI_APPLICATION);
-    wincl.hIconSm = LoadIcon (0, IDI_APPLICATION);
-    wincl.hCursor = LoadCursor (0, IDC_ARROW);
-    wincl.lpszMenuName = MAKEINTRESOURCE(IDR_MENU1);
-    wincl.cbClsExtra = 0;
-    wincl.cbWndExtra = 0;
+    wincl.hIcon         = LoadIcon (0, IDI_APPLICATION);
+    wincl.hIconSm       = LoadIcon (0, IDI_APPLICATION);
+    wincl.hCursor       = LoadCursor (0, IDC_ARROW);
+    wincl.lpszMenuName  = MAKEINTRESOURCE(IDR_MENU1);
+    wincl.cbClsExtra    = 0;
+    wincl.cbWndExtra    = 0;
 
     wincl.hbrBackground = (HBRUSH) COLOR_BACKGROUND;
 
@@ -123,8 +128,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
            WS_EX_ACCEPTFILES,
            szClassName, g_szWindowTitle,
            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-           CW_USEDEFAULT, CW_USEDEFAULT, WIN_WIDTH + 6, WIN_HEIGHT + 71,
-           HWND_DESKTOP, 0, hThisInstance, 0
+           CW_USEDEFAULT, CW_USEDEFAULT, WIN_WIDTH + WINDOW_WIDTH_OFFSET, 
+           WIN_HEIGHT + WINDOW_HEIGHT_OFFSET, HWND_DESKTOP, 0, hThisInstance, 0
            );
 
     g_hStatus = CreateWindowEx(
@@ -135,9 +140,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
             g_hWnd, reinterpret_cast<HMENU>(IDC_MAIN_STATUS), GetModuleHandle(NULL), NULL
             );
 
-    int statusWidths[] = {400, -1};
-
-    SendMessage(g_hStatus, SB_SETPARTS, sizeof (statusWidths) / sizeof (int), reinterpret_cast<LPARAM>(statusWidths));
+    int statusWidths[] = {STATUS_BAR_1_WIDTH, STATUS_BAR_2_WIDTH};
+    SendMessage(g_hStatus, SB_SETPARTS, sizeof (statusWidths) / sizeof(int), reinterpret_cast<LPARAM>(statusWidths));
     SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("No ROM loaded"));
 
     if (!g_hWnd) {
@@ -150,21 +154,21 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     ShowWindow(g_hWnd, nCmdShow);
 
     BITMAPINFO bmi;
-    bmi.bmiHeader.biSize = sizeof (BITMAPINFO);
-    bmi.bmiHeader.biWidth = WIN_WIDTH;
-    bmi.bmiHeader.biHeight = -WIN_HEIGHT;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    bmi.bmiHeader.biSizeImage = 0;
+    bmi.bmiHeader.biSize          = sizeof (BITMAPINFO);
+    bmi.bmiHeader.biWidth         = WIN_WIDTH;
+    bmi.bmiHeader.biHeight        = -WIN_HEIGHT;
+    bmi.bmiHeader.biPlanes        = 1;
+    bmi.bmiHeader.biBitCount      = 32;
+    bmi.bmiHeader.biCompression   = BI_RGB;
+    bmi.bmiHeader.biSizeImage     = 0;
     bmi.bmiHeader.biXPelsPerMeter = 0;
     bmi.bmiHeader.biYPelsPerMeter = 0;
-    bmi.bmiHeader.biClrUsed = 0;
-    bmi.bmiHeader.biClrImportant = 0;
-    bmi.bmiColors[0].rgbBlue = 0;
-    bmi.bmiColors[0].rgbGreen = 0;
-    bmi.bmiColors[0].rgbRed = 0;
-    bmi.bmiColors[0].rgbReserved = 0;
+    bmi.bmiHeader.biClrUsed       = 0;
+    bmi.bmiHeader.biClrImportant  = 0;
+    bmi.bmiColors[0].rgbBlue      = 0;
+    bmi.bmiColors[0].rgbGreen     = 0;
+    bmi.bmiColors[0].rgbRed       = 0;
+    bmi.bmiColors[0].rgbReserved  = 0;
 
     HDC hdc = GetDC(g_hWnd);
     g_hBmp = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, reinterpret_cast<void**>(&g_pPixels), 0, 0);
@@ -219,18 +223,18 @@ static void updateInput()
 static void drawBitmap()
 {
     unsigned char* screen = new unsigned char[WIN_WIDTH * WIN_HEIGHT];
-    unsigned char* gfx = g_Chip8.getVideoMemory();
+    unsigned char* gfx    = g_Chip8.getVideoMemory();
 
     int gfx_w, gfx_h, gfx_pitch;
 
     if (g_Chip8.getFlag(CPU_FLAG_SCHIP)) {
-        gfx_w       = SCHIP_VIDMEM_WIDTH;
-        gfx_h       = SCHIP_VIDMEM_HEIGHT;
-        gfx_pitch   = SCHIP_VIDMEM_WIDTH;
+        gfx_w     = SCHIP_VIDMEM_WIDTH;
+        gfx_h     = SCHIP_VIDMEM_HEIGHT;
+        gfx_pitch = SCHIP_VIDMEM_WIDTH;
     } else {
-        gfx_w       = CHIP8_VIDMEM_WIDTH;
-        gfx_h       = CHIP8_VIDMEM_HEIGHT;
-        gfx_pitch   = CHIP8_VIDMEM_WIDTH;
+        gfx_w     = CHIP8_VIDMEM_WIDTH;
+        gfx_h     = CHIP8_VIDMEM_HEIGHT;
+        gfx_pitch = CHIP8_VIDMEM_WIDTH;
     }
 
     int x1, y1;
