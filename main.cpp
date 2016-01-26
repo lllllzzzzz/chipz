@@ -8,6 +8,9 @@
 #include "resource.h"
 #include "chip8.h"
 
+#define SHOW_ERROR(msg)              MessageBox(NULL, msg, "chipz", MB_ICONERROR | MB_OK);
+#define SHOW_SUCCESS(msg)            MessageBox(NULL, msg, "chipz", MB_ICONASTERISK | MB_OK);
+
 #define DEBUG
 
 #define LVM_SETEXTENDEDLISTVIEWSTYLE (LVM_FIRST + 54)
@@ -24,7 +27,6 @@
 #define FRAMES_PER_SECOND            60
 #define TIMER_INTERVAL               17
 #define LOW_CPU_INTERVAL             5
-
 #define Hz_100                       100
 #define Hz_200                       200
 #define Hz_300                       300
@@ -37,24 +39,18 @@
 #define Hz_1000                      1000
 #define Hz_1500                      1500
 #define Hz_2000                      2000
-
-#define SHOW_ERROR(msg)              MessageBox(NULL, msg, "chipz", MB_ICONERROR | MB_OK);
-#define SHOW_SUCCESS(msg)            MessageBox(NULL, msg, "chipz", MB_ICONASTERISK | MB_OK);
-
 #define DEFAULT_BG_COLOUR            0x00000000
 #define DEFAULT_FG_COLOUR            0xFFFFFFFF
 
-// Callback prototypes
+
 LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK AboutProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-// Function prototypes
+
 static void drawBitmap();
 static void debugStep();
 static void playBeep();
 static void updateInput();
-static void readIni();
-static void writeIni();
 static void updateDebugger(HWND hwndDebugger);
 
 // Globals
@@ -102,14 +98,14 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     wincl.lpszClassName = szClassName;
     wincl.lpfnWndProc   = MainProc;
     wincl.style         = CS_DBLCLKS;
-    wincl.cbSize        = sizeof (WNDCLASSEX);
-    wincl.hIcon         = LoadIcon (0, IDI_APPLICATION);
-    wincl.hIconSm       = LoadIcon (0, IDI_APPLICATION);
-    wincl.hCursor       = LoadCursor (0, IDC_ARROW);
+    wincl.cbSize        = sizeof(WNDCLASSEX);
+    wincl.hIcon         = LoadIcon(0, IDI_APPLICATION);
+    wincl.hIconSm       = LoadIcon(0, IDI_APPLICATION);
+    wincl.hCursor       = LoadCursor(0, IDC_ARROW);
     wincl.lpszMenuName  = MAKEINTRESOURCE(IDR_MENU1);
     wincl.cbClsExtra    = 0;
     wincl.cbWndExtra    = 0;
-    wincl.hbrBackground = (HBRUSH) COLOR_BACKGROUND;
+    wincl.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BACKGROUND);
 
     if (!RegisterClassEx(&wincl)) {
         SHOW_ERROR("Error registering window class!\r\nchipz terminating...");
@@ -122,11 +118,13 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
            CW_USEDEFAULT, CW_USEDEFAULT, WIN_WIDTH + WINDOW_WIDTH_OFFSET,
            WIN_HEIGHT + WINDOW_HEIGHT_OFFSET, HWND_DESKTOP, 0, hThisInstance, 0
            );
+    assert(g_hWnd);
 
     g_hStatus = CreateWindowEx(
             0, STATUSCLASSNAME, NULL, WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, g_hWnd,
             reinterpret_cast<HMENU>(IDC_MAIN_STATUS), GetModuleHandle(NULL), NULL
             );
+    assert(g_hStatus);
 
     int statusWidths[] = {STATUS_BAR_1_WIDTH, STATUS_BAR_2_WIDTH};
     SendMessage(g_hStatus, SB_SETPARTS, sizeof(statusWidths) / sizeof(int),
@@ -183,7 +181,9 @@ static void updateInput()
 {
     #define IS_KEY_DOWN(key) ((GetAsyncKeyState(keyList[key]) & 0x8000) != 0)
 
-    char keyState[16] = {0};
+    static const int NUMBER_OF_KEYS = 16;
+
+    char keyState[NUMBER_OF_KEYS] = {0};
     int keyList[] = {
         0x31,  // '1'
         0x32,  // '2'
@@ -345,8 +345,8 @@ char* selectRomFilename()
     OPENFILENAME rom;
     char* romPath = new char[MAX_PATH]();
 
-    ZeroMemory(&rom, sizeof (OPENFILENAME));
-    rom.lStructSize = sizeof (OPENFILENAME);
+    ZeroMemory(&rom, sizeof(OPENFILENAME));
+    rom.lStructSize = sizeof(OPENFILENAME);
     rom.hwndOwner   = g_hWnd;
     rom.lpstrFilter = "All files (*.*)\0*.*\0";
     rom.lpstrFile   = romPath;
@@ -369,24 +369,26 @@ static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
     assert(hwndDebugger);
     assert(romSize > 0);
 
-    char ADDRESS_TITLE[]         = "Address";
-    char OPCODE_TITLE[]          = "Opcode";
-    static const int BUFFER_SIZE = 4;
+    char ADDRESS_TITLE[]                  = "Address";
+    char OPCODE_TITLE[]                   = "Opcode";
+    static const int BUFFER_SIZE          = 4;
+    static const int ADDRESS_COLUMN_WIDTH = 50;
+    static const int OPCODE_COLUMN_WIDTH  = 50;
 
     HWND hwndDisassembler = GetDlgItem(hwndDebugger, IDC_DISASSEMBLER);
     assert(hwndDisassembler);
 
     LVCOLUMN LvCol;
-    ZeroMemory(&LvCol, sizeof (LVCOLUMN));
+    ZeroMemory(&LvCol, sizeof(LVCOLUMN));
     LvCol.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
 
     // Set up disassembler window
     SendMessage(hwndDisassembler, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
     LvCol.pszText = ADDRESS_TITLE;
-    LvCol.cx      = 50;
+    LvCol.cx      = ADDRESS_COLUMN_WIDTH;
     SendMessage(hwndDisassembler, LVM_INSERTCOLUMN, 0, reinterpret_cast<LPARAM>(&LvCol));
     LvCol.pszText = OPCODE_TITLE;
-    LvCol.cx      = 50;
+    LvCol.cx      = OPCODE_COLUMN_WIDTH;
     SendMessage(hwndDisassembler, LVM_INSERTCOLUMN, 1, reinterpret_cast<LPARAM>(&LvCol));
 
     LVITEM LvItem;
@@ -412,16 +414,23 @@ static void setupDebugger(HWND hwndDebugger, unsigned int romSize)
 
 static void updateDebugger(HWND hwndDebugger)
 {
-    assert(hwndDebugger);
+    //assert(hwndDebugger);
 
-    static const int BUFFER_SIZE = 5;
+    if (hwndDebugger) {
+        SHOW_ERROR("Error: invalid debugger handle!");
+        return;
+    }
+
+    static const int TARGET_PC_BUFFER_SIZE = 5;
+    static const int CURRENT_PC_BUFFER_SIZE = 5;
+    static const int REGISTER_VALUE_BUFFER_SIZE = 5;
 
     HWND hwndDisassembler = GetDlgItem(hwndDebugger, IDC_DISASSEMBLER);
     assert(hwndDisassembler);
 
     registers cpuRegs = g_Chip8.getRegisters();
-    char targetPc[BUFFER_SIZE] = {0};
-    char currentPc[BUFFER_SIZE] = {0};
+    char targetPc[TARGET_PC_BUFFER_SIZE] = {0};
+    char currentPc[CURRENT_PC_BUFFER_SIZE] = {0};
 
     LVITEM LvItem;
     LvItem.mask = LVIF_TEXT;
@@ -433,7 +442,7 @@ static void updateDebugger(HWND hwndDebugger)
         LvItem.iItem      = nItem;
         LvItem.iSubItem   = 0;
         LvItem.pszText    = targetPc;
-        LvItem.cchTextMax = BUFFER_SIZE;
+        LvItem.cchTextMax = TARGET_PC_BUFFER_SIZE;
 
         sprintf(currentPc, "%04X", g_Chip8.getProgramCounter());
 
@@ -451,64 +460,69 @@ static void updateDebugger(HWND hwndDebugger)
     /*--------------------------------------
        Update registers on debugger window.
       --------------------------------------*/
-    char regValue[BUFFER_SIZE] = {0};
+    char registerValue[REGISTER_VALUE_BUFFER_SIZE] = {0};
 
     // Registers V0-VF
-    sprintf(regValue, "%02X", cpuRegs.V[0x0]);
-    SetDlgItemText(hwndDebugger, IDC_V0, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x1]);
-    SetDlgItemText(hwndDebugger, IDC_V1, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x2]);
-    SetDlgItemText(hwndDebugger, IDC_V2, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x3]);
-    SetDlgItemText(hwndDebugger, IDC_V3, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x4]);
-    SetDlgItemText(hwndDebugger, IDC_V4, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x5]);
-    SetDlgItemText(hwndDebugger, IDC_V5, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x6]);
-    SetDlgItemText(hwndDebugger, IDC_V6, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x7]);
-    SetDlgItemText(hwndDebugger, IDC_V7, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x8]);
-    SetDlgItemText(hwndDebugger, IDC_V8, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0x9]);
-    SetDlgItemText(hwndDebugger, IDC_V9, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0xA]);
-    SetDlgItemText(hwndDebugger, IDC_VA, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0xB]);
-    SetDlgItemText(hwndDebugger, IDC_VB, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0xC]);
-    SetDlgItemText(hwndDebugger, IDC_VC, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0xD]);
-    SetDlgItemText(hwndDebugger, IDC_VD, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0xE]);
-    SetDlgItemText(hwndDebugger, IDC_VE, regValue);
-    sprintf(regValue, "%02X", cpuRegs.V[0xF]);
-    SetDlgItemText(hwndDebugger, IDC_VF, regValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x0]);
+    SetDlgItemText(hwndDebugger, IDC_V0, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x1]);
+    SetDlgItemText(hwndDebugger, IDC_V1, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x2]);
+    SetDlgItemText(hwndDebugger, IDC_V2, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x3]);
+    SetDlgItemText(hwndDebugger, IDC_V3, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x4]);
+    SetDlgItemText(hwndDebugger, IDC_V4, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x5]);
+    SetDlgItemText(hwndDebugger, IDC_V5, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x6]);
+    SetDlgItemText(hwndDebugger, IDC_V6, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x7]);
+    SetDlgItemText(hwndDebugger, IDC_V7, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x8]);
+    SetDlgItemText(hwndDebugger, IDC_V8, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0x9]);
+    SetDlgItemText(hwndDebugger, IDC_V9, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0xA]);
+    SetDlgItemText(hwndDebugger, IDC_VA, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0xB]);
+    SetDlgItemText(hwndDebugger, IDC_VB, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0xC]);
+    SetDlgItemText(hwndDebugger, IDC_VC, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0xD]);
+    SetDlgItemText(hwndDebugger, IDC_VD, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0xE]);
+    SetDlgItemText(hwndDebugger, IDC_VE, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.V[0xF]);
+    SetDlgItemText(hwndDebugger, IDC_VF, registerValue);
 
     // CPU
-    sprintf(regValue, "%04X", cpuRegs.pc);
-    SetDlgItemText(hwndDebugger, IDC_PC, regValue);
-    sprintf(regValue, "%04X", cpuRegs.opcode);
-    SetDlgItemText(hwndDebugger, IDC_OPCODE, regValue);
-    sprintf(regValue, "%04X", cpuRegs.I);
-    SetDlgItemText(hwndDebugger, IDC_I, regValue);
-    sprintf(regValue, "%02X", cpuRegs.sp);
-    SetDlgItemText(hwndDebugger, IDC_SP, regValue);
+    sprintf(registerValue, "%04X", cpuRegs.pc);
+    SetDlgItemText(hwndDebugger, IDC_PC, registerValue);
+    sprintf(registerValue, "%04X", cpuRegs.opcode);
+    SetDlgItemText(hwndDebugger, IDC_OPCODE, registerValue);
+    sprintf(registerValue, "%04X", cpuRegs.I);
+    SetDlgItemText(hwndDebugger, IDC_I, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.sp);
+    SetDlgItemText(hwndDebugger, IDC_SP, registerValue);
 
     // Timers
-    sprintf(regValue, "%02X", cpuRegs.delayTimer);
-    SetDlgItemText(hwndDebugger, IDC_DT, regValue);
-    sprintf(regValue, "%02X", cpuRegs.soundTimer);
-    SetDlgItemText(hwndDebugger, IDC_ST, regValue);
+    sprintf(registerValue, "%02X", cpuRegs.delayTimer);
+    SetDlgItemText(hwndDebugger, IDC_DT, registerValue);
+    sprintf(registerValue, "%02X", cpuRegs.soundTimer);
+    SetDlgItemText(hwndDebugger, IDC_ST, registerValue);
 
     LockWindowUpdate(0);
 }
 
 static void debugStep(HWND hwndDebugger)
 {
-    assert(hwndDebugger);
+    //assert(hwndDebugger);
+
+    if (hwndDebugger) {
+        SHOW_ERROR("Error: invalid debugger handle!");
+        return;
+    }
 
     static const int DEBUG_STEP_CYCLES = 1;
 
@@ -539,7 +553,11 @@ static bool openRom(char *romPath)
     size_t romSize = ftell(pFile);
     rewind(pFile);
 
-    if (romSize > CHIP8_MAX_ROM_SIZE) {
+    if (romSize == 0) {
+        SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Error: ROM is 0 bytes!"));
+        fclose(pFile);
+        return false;
+    } else if (romSize > CHIP8_MAX_ROM_SIZE) {
         SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("Error: ROM size greater than 3584 bytes"));
         fclose(pFile);
         return false;
@@ -559,19 +577,16 @@ static bool openRom(char *romPath)
 // Callback procedure for Debugger window
 LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-//    HFONT hFont;
     g_hWndDebugger = hwnd;
 
-    switch (message)
-    {
+    switch (message) {
         case WM_INITDIALOG:
             setupDebugger(hwnd, g_Chip8.getRomSize());
             updateDebugger(hwnd);
             break;
 
         case WM_COMMAND:
-            switch(LOWORD(wParam))
-            {
+            switch (LOWORD(wParam)) {
                 case IDC_STEP:
                     debugStep(hwnd);
                     updateDebugger(g_hWndDebugger);
@@ -588,8 +603,7 @@ LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 
         case WM_KEYDOWN:
         {
-            switch(LOWORD(wParam))
-            {
+            switch (LOWORD(wParam)) {
                 case VK_TAB:
                     g_emu.isDebuggerRunning = false;
                     CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_UNCHECKED);
@@ -625,14 +639,12 @@ LRESULT CALLBACK DebuggerProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 // Callback procedure for About window
 LRESULT CALLBACK AboutProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    switch (message)
-    {
+    switch (message) {
         case WM_INITDIALOG:
             break;
 
         case WM_COMMAND:
-            switch(LOWORD(wParam))
-            {
+            switch (LOWORD(wParam)) {
                 case IDC_CLOSE:
                     EndDialog(hwnd, 0);
                     break;
@@ -662,8 +674,7 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     PAINTSTRUCT ps;
 
-    switch (message)
-    {
+    switch (message) {
         case WM_CREATE:
         {
             // Reset emulator flags
@@ -686,24 +697,32 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             if (g_hMemDC != 0) {
                 BitBlt(hDc, 0, 0, WIN_WIDTH, WIN_HEIGHT, g_hMemDC, 0, 0, SRCCOPY);
-//                StretchBlt(hDc, 0, 0, WIN_WIDTH, WIN_HEIGHT, g_hMemDC, 0, 0, 320, 160, SRCCOPY);
+                //StretchBlt(hDc, 0, 0, WIN_WIDTH, WIN_HEIGHT, g_hMemDC, 0, 0, 320, 160, SRCCOPY);
             }
 
             EndPaint(hwnd, &ps);
             break;
 
-//        case WM_TIMER:
-//            drawBitmap();
-//            break;
+           /*case WM_TIMER:
+               drawBitmap();
+               break;*/
 
         case WM_DROPFILES:
         {
             HDROP hDrop = reinterpret_cast<HDROP>(wParam);
-            char* romPath = new char[MAX_PATH]();
+            assert(hDrop);
+            if (!hDrop) {
+                SHOW_ERROR("Error: invalid handle!");
+                break;
+            }
 
+            char* romPath = new char[MAX_PATH]();
             DragQueryFile(hDrop, 0, static_cast<LPSTR>(romPath), MAX_PATH);
 
             if (openRom(romPath)) {
+                static const int STATUS_1_BUFFER_SIZE = 64;
+
+                int romSize = g_Chip8.getRomSize();
                 g_emu.isRomLoaded = true;
 
                 // Get rom name from path
@@ -718,10 +737,9 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     romFilename2[i] = romFilename[j];
                 }
 
-                char buffer[128];
-                int romSize = g_Chip8.getRomSize();
-                sprintf(buffer, "ROM loaded: %d bytes at 0x200", romSize);
-                SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
+                char status1[STATUS_1_BUFFER_SIZE] = {0};
+                sprintf(status1, "ROM loaded: %d bytes at 0x200", romSize);
+                SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(status1));
                 SendMessage(g_hStatus, SB_SETTEXT, 1, reinterpret_cast<LPARAM>(romFilename2));
                 updateUi(g_hMenu);
 
@@ -736,15 +754,14 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
         case WM_COMMAND:
-            switch(LOWORD(wParam))
-            {
+            switch (LOWORD(wParam)) {
                 case IDM_OPEN:
                 {
                     char *romPath = selectRomFilename();
                     //assert(romPath);
 
                     if (openRom(romPath)) {
-                        static const int BUFFER_SIZE = 32;
+                        static const int STATUS_1_BUFFER_SIZE = 64;
 
                         g_emu.isRomLoaded = true;
 
@@ -760,25 +777,22 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                             romFilename2[i] = romFilename[j];
                         }
 
-                        char buffer[BUFFER_SIZE] = {0};
+                        char status1[STATUS_1_BUFFER_SIZE] = {0};
                         int romSize = g_Chip8.getRomSize();
-                        sprintf(buffer, "ROM loaded: %d bytes at 0x200", romSize);
-                        SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
+                        sprintf(status1, "ROM loaded: %d bytes at 0x200", romSize);
+                        SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(status1));
                         SendMessage(g_hStatus, SB_SETTEXT, 1, reinterpret_cast<LPARAM>(romFilename2));
                         updateUi(g_hMenu);
 
-                        //KillTimer(reinterpret_cast<HWND>(timerEvent), TRUE);
                         timeKillEvent(timerEvent);
                         timerEvent = timeSetEvent(TIMER_INTERVAL, 0, timerCallback, 0, TIME_PERIODIC);
                     }
 
-                    //free(romPath);
-                    delete [] romPath;
+                    delete[] romPath;
                 }
                 break;
 
                 case IDM_CLOSE:
-                    //KillTimer(reinterpret_cast<HWND>(timerEvent), TRUE);
                     timeKillEvent(timerEvent);
 
                     EndDialog(g_hWndDebugger, 0);
@@ -788,7 +802,6 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     g_emu.isRomLoaded = false;
                     updateUi(g_hMenu);
 
-                    //SetWindowText(hwnd, g_szNoRomLoaded);
                     SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>("No ROM loaded"));
                     SendMessage(g_hStatus, SB_SETTEXT, 1, reinterpret_cast<LPARAM>(""));
                     break;
@@ -907,51 +920,42 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     g_emu.isPauseInactiveEnabled = !g_emu.isPauseInactiveEnabled;
                     CheckMenuItem(g_hMenu, IDM_PAUSE_WHEN_INACTIVE, (g_emu.isPauseInactiveEnabled) ? MF_CHECKED : MF_UNCHECKED);
                     break;
-
                 case IDM_X1:
                     WIN_WIDTH = 320;
                     WIN_HEIGHT = 160;
                     SetWindowPos(hwnd, HWND_TOP, 0, 0, 320, 160, SWP_NOMOVE);
                     break;
-
                 case IDM_COLOR_DEFAULT:
                     g_emu.bgColour = DEFAULT_BG_COLOUR;
                     g_emu.fgColour = DEFAULT_FG_COLOUR;
                     break;
-
                 case IDM_COLOR_INVERT:
                 {
                     unsigned int temp = g_emu.bgColour;
                     g_emu.bgColour = g_emu.fgColour;
                     g_emu.fgColour = temp;
-                }
                     break;
-
+                }
                 case IDM_COLOR_RANDOM:
                     g_emu.bgColour = rand();
                     g_emu.fgColour = rand();
                     break;
-
                 case IDM_SOUND_ON:
                     g_emu.isSoundEnabled = !g_emu.isSoundEnabled;
                     CheckMenuItem(g_hMenu, IDM_SOUND_ON, (g_emu.isSoundEnabled) ? MF_CHECKED : MF_UNCHECKED);
                     break;
-
                 case IDM_DETECT_GAME_OVER:
                     g_Chip8.toggleFlag(CPU_FLAG_DETECTGAMEOVER);
                     CheckMenuItem(g_hMenu, IDM_DETECT_GAME_OVER, (g_Chip8.getFlag(CPU_FLAG_DETECTGAMEOVER)) ? MF_CHECKED : MF_UNCHECKED);
                     break;
-
                 case IDM_DETECT_COLLISION:
                     g_Chip8.toggleFlag(CPU_FLAG_DETECTCOLLISION);
                     CheckMenuItem(g_hMenu, IDM_DETECT_COLLISION, (g_Chip8.getFlag(CPU_FLAG_DETECTCOLLISION)) ? MF_CHECKED : MF_UNCHECKED);
                     break;
-
                 case IDM_ENABLE_HORIZONTAL_WRAP:
                     g_Chip8.toggleFlag(CPU_FLAG_HWRAP);
                     CheckMenuItem(g_hMenu, IDM_ENABLE_HORIZONTAL_WRAP, (g_Chip8.getFlag(CPU_FLAG_HWRAP)) ? MF_CHECKED : MF_UNCHECKED);
                     break;
-
                 case IDM_ENABLE_VERTICAL_WRAP:
                     g_Chip8.toggleFlag(CPU_FLAG_VWRAP);
                     CheckMenuItem(g_hMenu, IDM_ENABLE_VERTICAL_WRAP, (g_Chip8.getFlag(CPU_FLAG_VWRAP)) ? MF_CHECKED : MF_UNCHECKED);
@@ -962,7 +966,8 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         g_hWndDebugger = CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_DEBUGGER), 0, reinterpret_cast<DLGPROC>(DebuggerProc));
 
                         if (!g_hWndDebugger) {
-                            MessageBox(NULL, "Error opening debugger!", "chipz", MB_OK | MB_ICONERROR);
+                            g_emu.isDebuggerRunning = false;
+                            SHOW_ERROR("Error opening debugger!")
                         } else {
                             g_emu.isDebuggerRunning = true;
                             CheckMenuItem(g_hMenu, IDM_DEBUGGER, MF_CHECKED);
@@ -975,29 +980,29 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
 
                 case IDM_ABOUT:
-                    CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_ABOUT), 0, (DLGPROC)AboutProc);
+                    CreateDialog(GetModuleHandle(0), MAKEINTRESOURCE(IDD_ABOUT), 0, reinterpret_cast<DLGPROC>(AboutProc));
                     break;
             }
             break;
 
             case WM_KEYDOWN:
-                switch(LOWORD(wParam))
-                {
+                switch (LOWORD(wParam)) {
                     case VK_F1:
                         if (g_emu.isRomLoaded) {
-                            static const int BUFFER_SIZE = 64;
+                            static const int STATUS_1_BUFFER_SIZE = 32;
+
                             g_emu.isGamePaused = !g_emu.isGamePaused;
 
-                            char buffer[BUFFER_SIZE] = {0};
                             unsigned short pc = g_Chip8.getProgramCounter();
+                            char status1[STATUS_1_BUFFER_SIZE] = {0};
 
                             if (g_emu.isGamePaused) {
-                                sprintf(buffer, "Emulation paused at 0x%04X", pc);
-                                SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
+                                sprintf(status1, "Emulation paused at 0x%04X", pc);
+                                SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(status1));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_CHECKED);
                             } else {
-                                sprintf(buffer, "Emulation resumed from 0x%04X", pc);
-                                SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
+                                sprintf(status1, "Emulation resumed from 0x%04X", pc);
+                                SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(status1));
                                 CheckMenuItem(g_hMenu, IDM_PAUSE, MF_UNCHECKED);
                             }
                         }
@@ -1036,6 +1041,8 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                     case VK_F4:
                         if (g_emu.isRomLoaded) {
+                            static const int STATUS_1_BUFFER_SIZE = 32;
+
                             g_Chip8.loadCpuState();
 
                             if (g_emu.isDebuggerRunning) {
@@ -1047,10 +1054,10 @@ LRESULT CALLBACK MainProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 drawBitmap();
                             }
 
-                            char buffer[64];
                             unsigned short pc = g_Chip8.getProgramCounter();
-                            sprintf(buffer, "State loaded at 0x%04X", pc);
-                            SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(buffer));
+                            char status1[STATUS_1_BUFFER_SIZE] = {0};
+                            sprintf(status1, "State loaded at 0x%04X", pc);
+                            SendMessage(g_hStatus, SB_SETTEXT, 0, reinterpret_cast<LPARAM>(status1));
                         }
                         break;
 
